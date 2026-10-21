@@ -1,0 +1,35 @@
+# CI du socle commun lui-même (dépôt its-dp-fab-cicd-common).
+# Toute évolution des templates ou de l'outillage passe par une PR validée par
+# ce pipeline, puis par un tag SemVer (v1.0.0, v1.1.0…) référencé par les 11 dépôts.
+trigger:
+  branches:
+    include: [main]
+  tags:
+    include: ["v*"]
+pr:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-24.04
+
+steps:
+  - checkout: self
+    path: s/cicd_common
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+  - script: |
+      set -euo pipefail
+      cd "$(Pipeline.Workspace)/s/cicd_common"
+      python -m pip install --disable-pip-version-check -r tools/requirements-dev.txt
+      python -m pip check
+      python -m compileall -q tools
+      yamllint -c .yamllint.yml pipelines registry
+      python -m pytest --junitxml="$(Build.ArtifactStagingDirectory)/tests.xml"
+    displayName: "Compilation, YAML, tests unitaires"
+  - task: PublishTestResults@2
+    condition: always()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: "$(Build.ArtifactStagingDirectory)/tests.xml"
