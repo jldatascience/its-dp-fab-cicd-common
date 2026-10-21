@@ -1,1 +1,249 @@
-test
+# Pipeline de déploiement continu Fabric — template unique pour les 11 dépôts.
+#
+# Étendu par CD.yml de chaque dépôt (extends). Rendre ce template OBLIGATOIRE
+# sur les Environments ADO (check « Required template ») garantit qu'aucun
+# pipeline ne peut déployer sans passer par ces contrôles.
+#
+# Règle de branches (v1.2) : un run ne déploie QU'UN environnement, selon la branche
+# source de l'artefact CI :
+#   develop   → [Deploy_DEV] → Deploy_ITG
+#   release/* → Deploy_PPR   (une branche de release par lot de features, créée au besoin)
+#   main      → Deploy_PRD
+# Validate_Artifact calcule l'environnement cible (deploy.py route, variable targetEnv) ;
+# toute autre branche est refusée. Chaque stage revérifie la branche (check-branch --env).
+# Dépendances entre dépôts (v1.3) : aucune dans ce pipeline. Chaque dépôt a sa propre CD ;
+# seuls les ADP et BDP vérifient, dans leur stage, que le Framework est disponible sur
+# l'environnement (pré-vol + porte ADO). Framework et UCS : aucune porte. ADP et BDP : aucun
+# ordre entre eux. Les dependsOn ci-dessous ne relient que les stages d'un même run.
+# Secrets : coffre frfrkvdevdp0001 (<ENV>-AZURE-CLIENT-ID / -CLIENT-SECRET / -TENANT-ID),
+# lus par AzureKeyVault@2 dans chaque stage ; le groupe Fabric-CD-Secrets n'est plus utilisé.
+# L'artefact CI (ressource pipeline « ci ») d'un run est celui de sa branche ; son
+# empreinte SHA-256 est calculée en Validate_Artifact et revérifiée avant le déploiement.
+# La progression ITG → PPR → PRD suit le flux Git develop → release/* → main (PR).
+# Les approbations PPR/PRD sont portées par les Environments ADO
+# fabric-ppr / fabric-prd (Approvals and checks), pas par ce YAML.
+parameters:
+  - name: repository
+    type: string
+  - name: role
+    type: string
+    values: [framework, consumer]
+  - name: ciAlias
+    type: string
+    default: ci
+  - name: artifactName
+    type: string
+    default: fabric
+  - name: artifactSubPath
+    displayName: "Sous-dossier de l'artefact qui contient deployment/ (template KPMG : binaries)"
+    type: string
+    default: binaries
+  - name: sourceBranches
+    displayName: "Branche source autorisée par environnement (motif fnmatch) : develop → ITG, release/* → PPR, main → PRD"
+    type: object
+    default:
+      ITG: refs/heads/develop
+      PPR: refs/heads/release/*
+      PRD: refs/heads/main
+  - name: devMode
+    displayName: "DEV : skip (pas de stage), validate (résolution sans écriture), deploy"
+    type: string
+    default: skip
+    values: [skip, validate, deploy]
+  - name: lastEnvironment
+    displayName: "Dernier environnement généré (pilote : limiter la portée)"
+    type: string
+    default: PRD
+    values: [DEV, ITG, PPR, PRD]
+  - name: authMode
+    displayName: "secret (transitoire, client secret) ou cli (fédération d'identité, cible)"
+    type: string
+    default: secret
+    values: [secret, cli]
+  - name: secretSource
+    # Audit 20/10/2026 : seule valeur admise = keyVault. Le repli vers le groupe de variables
+    # Fabric-CD-Secrets a été retiré (contournement possible par simple PR sur CD.yml).
+    # Retour arrière éventuel = épingler le tag précédent du socle, pas une option du template.
+    displayName: "keyVault (coffre frfrkvdevdp0001) — seule source de secrets admise"
+    type: string
+    default: keyVault
+    values: [keyVault]
+  - name: keyVaultName
+    type: string
+    default: frfrkvdevdp0001
+  - name: serviceConnections
+    displayName: "Une service connection ARM par environnement (pas le nom du coffre), autorisée à lire frfrkvdevdp0001"
+    type: object
+    default:
+      DEV: ""
+      ITG: __A_CONFIRMER_SERVICE_CONNECTION_KEYVAULT_ITG__
+      PPR: __A_CONFIRMER_SERVICE_CONNECTION_KEYVAULT_PPR__
+      PRD: __A_CONFIRMER_SERVICE_CONNECTION_KEYVAULT_PRD__
+  - name: frameworkGate
+    type: string
+    default: ado
+    values: [ado, "off"]
+  - name: frameworkPipelineName
+    type: string
+    default: ""
+  - name: adoEnvironmentPrefix
+    type: string
+    default: fabric-
+  - name: pool
+    type: object
+    default:
+      vmImage: ubuntu-24.04
+  - name: pythonVersion
+    type: string
+    default: "3.12"
+
+stages:
+  # ------------------------------------------------------------------ 0
+  - stage: Validate_Artifact
+    displayName: "Validation de l'artefact CI"
+    jobs:
+      - job: Validate
+        displayName: "Branche, contrôles statiques, empreinte"
+        pool: ${{ parameters.pool }}
+        timeoutInMinutes: 20
+        steps:
+          - checkout: cicd_common
+            path: s/cicd_common
+            fetchDepth: 1
+          - download: ${{ parameters.ciAlias }}
+            artifact: ${{ parameters.artifactName }}
+            displayName: "Artefact CI ${{ parameters.artifactName }}"
+          - template: steps-python.yml
+            parameters:
+              pythonVersion: ${{ parameters.pythonVersion }}
+          - script: >-
+              python "$(Pipeline.Workspace)/s/cicd_common/tools/deploy.py" route
+              --branch "$CI_SOURCE_BRANCH"
+              --policy "${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}"
+              --last-env ${{ parameters.lastEnvironment }}
+            name: route
+            displayName: "Environnement cible selon la branche source (develop → ITG, release/* → PPR, main → PRD)"
+            env:
+              # Passée par variable d'environnement : un nom de branche n'est jamais interprété par le shell.
+              CI_SOURCE_BRANCH: $(resources.pipeline.${{ parameters.ciAlias }}.sourceBranch)
+          - script: >-
+              python "$(Pipeline.Workspace)/s/cicd_common/tools/deploy.py" validate
+              --repo "$(Pipeline.Workspace)/${{ parameters.ciAlias }}/${{ parameters.artifactName }}/${{ parameters.artifactSubPath }}"
+              --inventory-csv "$(Build.ArtifactStagingDirectory)/manifest/guid-inventory.csv"
+            displayName: "Contrôles statiques sur l'artefact"
+          - script: >-
+              python "$(Pipeline.Workspace)/s/cicd_common/tools/deploy.py" manifest
+              --path "$(Pipeline.Workspace)/${{ parameters.ciAlias }}/${{ parameters.artifactName }}/${{ parameters.artifactSubPath }}"
+              --out "$(Build.ArtifactStagingDirectory)/manifest/deployment-manifest.json"
+              --repository "${{ parameters.repository }}"
+            displayName: "Empreinte SHA-256 de l'artefact"
+            env:
+              CI_RUN_ID: $(resources.pipeline.${{ parameters.ciAlias }}.runID)
+              CI_RUN_NAME: $(resources.pipeline.${{ parameters.ciAlias }}.runName)
+              CI_COMMIT: $(resources.pipeline.${{ parameters.ciAlias }}.sourceCommit)
+              CI_SOURCE_BRANCH: $(resources.pipeline.${{ parameters.ciAlias }}.sourceBranch)
+          - publish: "$(Build.ArtifactStagingDirectory)/manifest"
+            artifact: deployment-manifest
+            displayName: "Manifeste et inventaire des GUID"
+            condition: always()
+
+  # ------------------------------------------------------------------ DEV
+  - ${{ if ne(parameters.devMode, 'skip') }}:
+      - template: stage-deploy.yml
+        parameters:
+          env: DEV
+          mode: ${{ parameters.devMode }}
+          dependsOn: [Validate_Artifact]
+          # DEV suit develop (même run que ITG).
+          condition: "and(succeeded(), eq(dependencies.Validate_Artifact.outputs['Validate.route.targetEnv'], 'ITG'))"
+          repository: ${{ parameters.repository }}
+          role: ${{ parameters.role }}
+          ciAlias: ${{ parameters.ciAlias }}
+          artifactName: ${{ parameters.artifactName }}
+          artifactSubPath: ${{ parameters.artifactSubPath }}
+          authMode: ${{ parameters.authMode }}
+          secretSource: ${{ parameters.secretSource }}
+          keyVaultName: ${{ parameters.keyVaultName }}
+          serviceConnections: ${{ parameters.serviceConnections }}
+          frameworkGate: ${{ parameters.frameworkGate }}
+          frameworkPipelineName: ${{ parameters.frameworkPipelineName }}
+          adoEnvironmentPrefix: ${{ parameters.adoEnvironmentPrefix }}
+          pool: ${{ parameters.pool }}
+          pythonVersion: ${{ parameters.pythonVersion }}
+          branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}
+
+  # ------------------------------------------------------------------ ITG
+  - ${{ if in(parameters.lastEnvironment, 'ITG', 'PPR', 'PRD') }}:
+      - template: stage-deploy.yml
+        parameters:
+          env: ITG
+          mode: deploy
+          ${{ if ne(parameters.devMode, 'skip') }}:
+            dependsOn: [Validate_Artifact, Deploy_DEV]
+          ${{ else }}:
+            dependsOn: [Validate_Artifact]
+          condition: "and(succeeded(), eq(dependencies.Validate_Artifact.outputs['Validate.route.targetEnv'], 'ITG'))"
+          repository: ${{ parameters.repository }}
+          role: ${{ parameters.role }}
+          ciAlias: ${{ parameters.ciAlias }}
+          artifactName: ${{ parameters.artifactName }}
+          artifactSubPath: ${{ parameters.artifactSubPath }}
+          authMode: ${{ parameters.authMode }}
+          secretSource: ${{ parameters.secretSource }}
+          keyVaultName: ${{ parameters.keyVaultName }}
+          serviceConnections: ${{ parameters.serviceConnections }}
+          frameworkGate: ${{ parameters.frameworkGate }}
+          frameworkPipelineName: ${{ parameters.frameworkPipelineName }}
+          adoEnvironmentPrefix: ${{ parameters.adoEnvironmentPrefix }}
+          pool: ${{ parameters.pool }}
+          pythonVersion: ${{ parameters.pythonVersion }}
+          branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}
+
+  # ------------------------------------------------------------------ PPR
+  - ${{ if in(parameters.lastEnvironment, 'PPR', 'PRD') }}:
+      - template: stage-deploy.yml
+        parameters:
+          env: PPR
+          mode: deploy
+          dependsOn: [Validate_Artifact]
+          condition: "and(succeeded(), eq(dependencies.Validate_Artifact.outputs['Validate.route.targetEnv'], 'PPR'))"
+          repository: ${{ parameters.repository }}
+          role: ${{ parameters.role }}
+          ciAlias: ${{ parameters.ciAlias }}
+          artifactName: ${{ parameters.artifactName }}
+          artifactSubPath: ${{ parameters.artifactSubPath }}
+          authMode: ${{ parameters.authMode }}
+          secretSource: ${{ parameters.secretSource }}
+          keyVaultName: ${{ parameters.keyVaultName }}
+          serviceConnections: ${{ parameters.serviceConnections }}
+          frameworkGate: ${{ parameters.frameworkGate }}
+          frameworkPipelineName: ${{ parameters.frameworkPipelineName }}
+          adoEnvironmentPrefix: ${{ parameters.adoEnvironmentPrefix }}
+          pool: ${{ parameters.pool }}
+          pythonVersion: ${{ parameters.pythonVersion }}
+          branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}
+
+  # ------------------------------------------------------------------ PRD
+  - ${{ if eq(parameters.lastEnvironment, 'PRD') }}:
+      - template: stage-deploy.yml
+        parameters:
+          env: PRD
+          mode: deploy
+          dependsOn: [Validate_Artifact]
+          condition: "and(succeeded(), eq(dependencies.Validate_Artifact.outputs['Validate.route.targetEnv'], 'PRD'))"
+          repository: ${{ parameters.repository }}
+          role: ${{ parameters.role }}
+          ciAlias: ${{ parameters.ciAlias }}
+          artifactName: ${{ parameters.artifactName }}
+          artifactSubPath: ${{ parameters.artifactSubPath }}
+          authMode: ${{ parameters.authMode }}
+          secretSource: ${{ parameters.secretSource }}
+          keyVaultName: ${{ parameters.keyVaultName }}
+          serviceConnections: ${{ parameters.serviceConnections }}
+          frameworkGate: ${{ parameters.frameworkGate }}
+          frameworkPipelineName: ${{ parameters.frameworkPipelineName }}
+          adoEnvironmentPrefix: ${{ parameters.adoEnvironmentPrefix }}
+          pool: ${{ parameters.pool }}
+          pythonVersion: ${{ parameters.pythonVersion }}
+          branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}
+
