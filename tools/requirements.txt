@@ -1,0 +1,15 @@
+
+# Dépendances Python de la chaîne CI/CD Fabric (socle commun).
+# Versions épinglées : toute montée de version passe par une PR sur ce dépôt,
+# l'exécution de la suite de tests (tests/) et un nouveau tag.
+#
+# fabric-cicd 1.4.0 : version cible du MODOP (>=1.4.0,<2). Vérifié sur le code source :
+# deploy_with_config, config.yml (core/publish/unpublish/features), résolution
+# $workspace.<nom>.$items.<type>.<nom>.$id, feature flags enable_exclude_folder.
+fabric-cicd==1.4.0
+# Contrainte imposée par fabric-cicd 1.4.0 (Requires-Dist: azure-identity>=1.25.0).
+azure-identity>=1.25.0,<2
+requests>=2.32.3,<3
+PyYAML>=6.0.3,<7
+# Même borne que fabric-cicd 1.4.0 (jsonpath-ng>=1.7.0,<1.8.0).
+jsonpath-ng>=1.7.0,<1.8.0

@@ -1,0 +1,4 @@
+
+-r requirements.txt
+pytest>=8,<9
+yamllint>=1.35,<2
