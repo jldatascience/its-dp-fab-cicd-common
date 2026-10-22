@@ -1,0 +1,22 @@
+# Installe Python et les dépendances épinglées du socle commun.
+# Utilisé par validate-pipeline.yml et cd-pipeline.yml (jamais directement par un dépôt).
+parameters:
+  - name: pythonVersion
+    type: string
+    default: "3.12"
+  - name: commonPath
+    type: string
+    default: "$(Pipeline.Workspace)/s/cicd_common"
+
+steps:
+  - task: UsePythonVersion@0
+    displayName: "Python ${{ parameters.pythonVersion }}"
+    inputs:
+      versionSpec: "${{ parameters.pythonVersion }}"
+
+  - script: |
+      set -euo pipefail
+      python -m pip install --disable-pip-version-check --no-input -r "${{ parameters.commonPath }}/tools/requirements.txt"
+      python -c "import sys; from importlib.metadata import version; print('fabric-cicd', version('fabric-cicd'), '| python', sys.version.split()[0])"
+      python -m pip check
+    displayName: "Dépendances Python épinglées (socle commun)"

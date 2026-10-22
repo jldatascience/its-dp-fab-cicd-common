@@ -1,0 +1,35 @@
+# .yamllint.yml — its-dp-fab-cicd-common (socle commun CI/CD Fabric)
+#
+# Règles YAML communes, utilisées à deux endroits :
+#   1. CI du socle (pipelines/ci-common.yml) : templates, registre des GUID, etc. ;
+#   2. validation de PR des 11 dépôts Fabric (pipelines/templates/validate-pipeline.yml) :
+#      yamllint -c <socle>/.yamllint.yml deployment ./*.yml
+#      soit config.yml, parameter.yml, dependencies.yml et CI.yml, CD.yml, PR-Validation.yml.
+# Une erreur yamllint rend le check rouge et bloque la fusion de la PR.
+# Toute modification de ce fichier = nouvelle version (tag) du socle.
+
+extends: default
+
+rules:
+  # Lignes longues admises : chemins JSON (find_key), références
+  # $workspace.<nom du workspace>.$items… et noms de workspace complets.
+  line-length:
+    max: 220
+
+  # Pas de « --- » obligatoire en tête de fichier (pipelines ADO et fichiers fabric-cicd).
+  document-start: disable
+
+  # Seules les valeurs sont contrôlées (true / false uniquement, pas yes / no / on) ;
+  # les clés ne le sont pas, pour ne pas gêner les mots-clés des pipelines.
+  truthy:
+    check-keys: false
+
+  # Indentation de 2 espaces ; listes indentées ou non sous leur clé
+  # (les deux styles coexistent dans les fichiers générés et dans les templates).
+  indentation:
+    spaces: 2
+    indent-sequences: whatever
+
+  # Un espace minimum avant un commentaire en fin de ligne.
+  comments:
+    min-spaces-from-content: 1
