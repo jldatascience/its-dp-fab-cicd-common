@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 import yaml
-from conftest import SANDBOX_WS, base_config, base_dependencies, invoke_activity, pipeline, write_item
+from CICD.tests.conftest import SANDBOX_WS, base_config, base_dependencies, invoke_activity, pipeline, write_item
 
 from fabcicd.registry import Registry
 from fabcicd.static_checks import run_static_checks

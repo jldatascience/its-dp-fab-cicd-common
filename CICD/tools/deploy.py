@@ -38,13 +38,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fabcicd import ENVIRONMENTS, log  # noqa: E402
-from fabcicd.findings import Findings  # noqa: E402
-from fabcicd.items import discover_items  # noqa: E402
-from fabcicd.registry import Registry, default_registry_path  # noqa: E402
-from fabcicd.report import Report  # noqa: E402
-from fabcicd.settings import SettingsError, load_repo  # noqa: E402
-from fabcicd.static_checks import run_static_checks  # noqa: E402
+from CICD.tools.fabcicd import log
+from fabcicd import ENVIRONMENTS  # noqa: E402
+from CICD.tools.fabcicd.findings import Findings  # noqa: E402
+from CICD.tools.fabcicd.items import discover_items  # noqa: E402
+from CICD.tools.fabcicd.registry import Registry, default_registry_path  # noqa: E402
+from CICD.tools.fabcicd.report import Report  # noqa: E402
+from CICD.tools.fabcicd.settings import SettingsError, load_repo  # noqa: E402
+from CICD.tools.fabcicd.static_checks import run_static_checks  # noqa: E402
 
 EXIT_OK, EXIT_CHECKS, EXIT_DEPLOY, EXIT_POLICY, EXIT_USAGE = 0, 1, 2, 3, 4
 
@@ -113,9 +114,9 @@ def cmd_scan(args) -> int:
 
 
 def cmd_deploy(args, verify_only: bool = False) -> int:
-    from fabcicd.fabric_api import FabricClient
-    from fabcicd.preflight import run_preflight
-    from fabcicd.verify import run_verify
+    from CICD.tools.fabcicd.fabric_api import FabricClient
+    from CICD.tools.fabcicd.preflight import run_preflight
+    from CICD.tools.fabcicd.verify import run_verify
 
     env = args.env.upper()
     if env not in ENVIRONMENTS:
@@ -137,7 +138,7 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
     report = Report(ctx.repository, env, mode)
     report_dir = Path(args.report_dir)
 
-    from fabcicd.dependencies import rule_violations
+    from CICD.tools.fabcicd.dependencies import rule_violations
     violations = rule_violations(ctx)
 
     def finish(status: str, code: int) -> int:
@@ -170,7 +171,7 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
 
     try:
         credential = build_credential(args.auth)
-        from fabcicd.fabric_api import FABRIC_SCOPE
+        from CICD.tools.fabcicd.fabric_api import FABRIC_SCOPE
         credential.get_token(FABRIC_SCOPE)  # échec d'authentification détecté ici (code 4), pas au pré-vol
         client = FabricClient(credential)
     except Exception as exc:
@@ -191,9 +192,9 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
         return finish("failed", EXIT_CHECKS)
 
     if not verify_only and args.framework_gate == "ado":
-        from fabcicd.ado_gate import AdoClient, check_framework_deployed
-        from fabcicd.branches import gate_branch
-        from fabcicd.dependencies import needs_framework_gate
+        from CICD.tools.fabcicd.ado_gate import AdoClient, check_framework_deployed
+        from CICD.tools.fabcicd.branches import gate_branch
+        from CICD.tools.fabcicd.dependencies import needs_framework_gate
         # v1.3 : une seule porte, le Framework, pour les ADP et les BDP (R1-R4). Aucune porte
         # pour le Framework ni pour UCS (R5) ; jamais de porte entre Data Products (R2, R3).
         # La porte vérifie la DISPONIBILITÉ (dernier déploiement réussi sur l'environnement) :
@@ -251,7 +252,7 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
         return finish("failed", EXIT_CHECKS)
 
     if not verify_only and ctx.smoke_tests(env):
-        from fabcicd.smoke import run_smoke_tests
+        from CICD.tools.fabcicd.smoke import run_smoke_tests
         with log.group(f"Tests fonctionnels {env}"):
             try:
                 smoke = run_smoke_tests(ctx, env, client, pre)
@@ -266,7 +267,7 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
 
 
 def cmd_lookup(args) -> int:
-    from fabcicd.fabric_api import FabricApiError, FabricClient
+    from CICD.tools.fabcicd.fabric_api import FabricApiError, FabricClient
     client = FabricClient(build_credential(args.auth))
     code = EXIT_OK
     for workspace_id in args.ids:
@@ -279,7 +280,7 @@ def cmd_lookup(args) -> int:
 
 
 def cmd_manifest(args) -> int:
-    from fabcicd.manifest import check_manifest, write_manifest
+    from CICD.tools.fabcicd.manifest import check_manifest, write_manifest
     root = Path(args.path)
     if args.check:
         ok, message = check_manifest(root, Path(args.check))
@@ -295,7 +296,7 @@ def cmd_manifest(args) -> int:
 
 
 def cmd_check_branch(args) -> int:
-    from fabcicd.branches import BranchPolicyError, matches, parse_policy
+    from CICD.tools.fabcicd.branches import BranchPolicyError, matches, parse_policy
 
     if args.env:
         try:
@@ -316,7 +317,7 @@ def cmd_check_branch(args) -> int:
 
 def cmd_route(args) -> int:
     """Environnement cible du run : publié en variable de sortie ``targetEnv`` (ADO)."""
-    from fabcicd.branches import ORDER, BranchPolicyError, parse_policy, target_environment
+    from CICD.tools.fabcicd.branches import ORDER, BranchPolicyError, parse_policy, target_environment
 
     try:
         policy = parse_policy(args.policy)

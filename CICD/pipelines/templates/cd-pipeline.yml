@@ -15,8 +15,16 @@
 # seuls les ADP et BDP vérifient, dans leur stage, que le Framework est disponible sur
 # l'environnement (pré-vol + porte ADO). Framework et UCS : aucune porte. ADP et BDP : aucun
 # ordre entre eux. Les dependsOn ci-dessous ne relient que les stages d'un même run.
-# Secrets : coffre frfrkvdevdp0001 (<ENV>-AZURE-CLIENT-ID / -CLIENT-SECRET / -TENANT-ID),
-# lus par AzureKeyVault@2 dans chaque stage ; le groupe Fabric-CD-Secrets n'est plus utilisé.
+# Authentification (v1.4.0, audit du 22/10/2026 — recommandations CI/CD as Config) :
+#   - coffre UNIQUE frfrkvdevdp0001 pour ITG, PPR et PRD (pas de coffre par environnement) ;
+#   - une service connection Azure Resource Manager DISTINCTE par environnement
+#     (serviceConnections), créée par Ops en fédération d'identité (aucun secret pour
+#     se connecter à Azure) ;
+#   - chaque stage lit dans le coffre, avec la service connection de SON environnement,
+#     les 3 secrets <ENV>-AZURE-CLIENT-ID / -CLIENT-SECRET / -TENANT-ID (AzureKeyVault@2,
+#     tâche du template imposé : un dépôt ne peut pas la remplacer) ;
+#   - authMode secret : le SPN de l'environnement ainsi obtenu publie dans Fabric.
+#   Le groupe de variables Fabric-CD-Secrets n'est plus utilisé.
 # L'artefact CI (ressource pipeline « ci ») d'un run est celui de sa branche ; son
 # empreinte SHA-256 est calculée en Validate_Artifact et revérifiée avant le déploiement.
 # La progression ITG → PPR → PRD suit le flux Git develop → release/* → main (PR).
@@ -69,16 +77,18 @@ parameters:
     default: keyVault
     values: [keyVault]
   - name: keyVaultName
+    # Coffre unique pour tous les environnements déployés (décision du 22/10/2026).
+    displayName: "Coffre unique frfrkvdevdp0001 (ITG, PPR, PRD)"
     type: string
     default: frfrkvdevdp0001
   - name: serviceConnections
-    displayName: "Une service connection ARM par environnement (pas le nom du coffre), autorisée à lire frfrkvdevdp0001"
+    displayName: "Une service connection ARM distincte par environnement (fédération d'identité, créée par Ops), autorisée à lire frfrkvdevdp0001"
     type: object
     default:
       DEV: ""
-      ITG: __A_CONFIRMER_SERVICE_CONNECTION_KEYVAULT_ITG__
-      PPR: __A_CONFIRMER_SERVICE_CONNECTION_KEYVAULT_PPR__
-      PRD: __A_CONFIRMER_SERVICE_CONNECTION_KEYVAULT_PRD__
+      ITG: __A_CONFIRMER_SERVICE_CONNECTION_ARM_ITG__
+      PPR: __A_CONFIRMER_SERVICE_CONNECTION_ARM_PPR__
+      PRD: __A_CONFIRMER_SERVICE_CONNECTION_ARM_PRD__
   - name: frameworkGate
     type: string
     default: ado
@@ -246,4 +256,3 @@ stages:
           pool: ${{ parameters.pool }}
           pythonVersion: ${{ parameters.pythonVersion }}
           branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}
-

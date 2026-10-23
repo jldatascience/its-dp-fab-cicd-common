@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import yaml
 
-from . import ENVIRONMENTS
+from ....tools.fabcicd import ENVIRONMENTS
 
 PLACEHOLDER_MARK = "__A_RELEVER__"
 

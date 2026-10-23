@@ -6,10 +6,12 @@
 #   validés (approbation PPR/PRD, verrou exclusif, contrôle de branche, template requis).
 # Artefact consommé : ressource pipeline « ci » (même run pour tous les stages),
 #   empreinte contrôlée contre deployment-manifest.json.
-# Secrets : AzureKeyVault@2 lit dans le coffre les 3 secrets de l'environnement
-#   (<ENV>-AZURE-CLIENT-ID, <ENV>-AZURE-CLIENT-SECRET, <ENV>-AZURE-TENANT-ID) avec la
-#   service connection de l'environnement ; ils sont passés au script par variables
-#   d'environnement et masqués dans les journaux.
+# Secrets (v1.4.0) : AzureKeyVault@2 lit dans le coffre unique (keyVaultName, frfrkvdevdp0001)
+#   les 3 secrets de l'environnement (<ENV>-AZURE-CLIENT-ID, <ENV>-AZURE-CLIENT-SECRET,
+#   <ENV>-AZURE-TENANT-ID) avec la service connection ARM de l'environnement (fédération
+#   d'identité) ; ils sont passés au script par variables d'environnement et masqués dans
+#   les journaux. Cette tâche fait partie du template imposé (Required template) : un dépôt
+#   ne peut ni la retirer ni la remplacer par un groupe de variables.
 # Opérations : intégrité → secrets Key Vault → pré-vol → [porte Framework : ADP et BDP seulement, v1.3]
 #   → publication fabric-cicd → vérification post-déploiement → rapport.
 # Arrêt : tout code de sortie non nul de deploy.py fait échouer le stage, donc
@@ -92,9 +94,9 @@ stages:
                 # Garde à la compilation : nom de service connection non confirmé (marqueur __A_CONFIRMER_…).
                 - ${{ if contains(parameters.serviceConnections[parameters.env], '__A_CONFIRMER') }}:
                     - script: |
-                        echo "##vso[task.logissue type=error]serviceConnections.${{ parameters.env }} : service connection Key Vault à confirmer (marqueur présent)"
+                        echo "##vso[task.logissue type=error]serviceConnections.${{ parameters.env }} : service connection ARM à confirmer (marqueur présent)"
                         exit 1
-                      displayName: "Configuration invalide : service connection Key Vault ${{ parameters.env }} à confirmer"
+                      displayName: "Configuration invalide : service connection ARM ${{ parameters.env }} à confirmer"
                 # Garde à la compilation (v1.1) : une service connection DISTINCTE par environnement
                 # (ITG, PPR, PRD). Celle d'un stage ne doit être déclarée pour aucun autre environnement :
                 # l'identité ITG ne peut jamais lire les secrets PPR/PRD, et inversement.
@@ -138,6 +140,7 @@ stages:
                       inputs:
                         azureSubscription: ${{ parameters.serviceConnections[parameters.env] }}
                         KeyVaultName: ${{ parameters.keyVaultName }}
+                        # Coffre unique ; service connection ARM de l'environnement (fédération d'identité).
                         # Noms des secrets du coffre frfrkvdevdp0001 (constatés le 19/10/2026) :
                         # <ENV>-AZURE-CLIENT-ID, <ENV>-AZURE-CLIENT-SECRET, <ENV>-AZURE-TENANT-ID.
                         # Seuls les 3 secrets de l'environnement du stage sont lus.

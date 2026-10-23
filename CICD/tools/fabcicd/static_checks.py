@@ -8,7 +8,9 @@ Codes d'erreur principaux
 STRUCT_*    structure du dépôt / fichiers manquants
 CONFIG_*    config.yml (validation fabric-cicd + règles KPMG)
 PARAM_*     parameter.yml (validation fabric-cicd + règles KPMG)
-RULE_*      règles key_value_replace (environnement, cible, effet réel)
+RULE_*      règles key_value_replace (environnement, cible, effet réel) ; un GUID littéral
+            dans replace_value est bloquant (RULE_LITERAL_GUID), sauf si dependencies.yml
+            déclare guid_policy.allow_literal_ids: true (v1.3.1, constat informatif)
 JSON_*      fichiers JSON d'items illisibles
 TYPES_*     cohérence item_types_in_scope / items présents
 GUID_*      GUID sandbox ou d'environnement codés en dur hors règle
@@ -341,7 +343,11 @@ def check_rules(
             if variable.kind in ("cross_workspace", "cross_item") and is_placeholder(variable.workspace_name):
                 findings.warning("RULE_PLACEHOLDER", f"{env} : nom de workspace à relever dans {value}", where)
             if variable.kind == "literal" and GUID_RE.fullmatch(str(value) or ""):
-                findings.error("RULE_LITERAL_GUID", f"{env} : GUID littéral interdit dans replace_value ({value})", where)
+                if ctx.guid_policy.get("allow_literal_ids") is True:
+                    # Décision du 22/10/2026 : IDs en clair admis dans parameter.yml (solution temporaire).
+                    findings.info("RULE_LITERAL_GUID_ALLOWED", f"{env} : ID littéral admis par guid_policy.allow_literal_ids ({value})", where)
+                else:
+                    findings.error("RULE_LITERAL_GUID", f"{env} : GUID littéral interdit dans replace_value ({value})", where)
 
         if targets and not matched_paths:
             findings.error(

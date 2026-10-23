@@ -11,7 +11,7 @@ import json
 
 import pytest
 import yaml
-from conftest import SANDBOX_WS, FakeCredential, FakeFabric, base_dependencies, notebook_activity, pipeline
+from CICD.tests.conftest import SANDBOX_WS, FakeCredential, FakeFabric, base_dependencies, notebook_activity, pipeline
 
 import deploy as cli
 from fabcicd.ado_gate import check_framework_deployed
@@ -296,7 +296,7 @@ def test_full_flow_fails_when_deployed_reference_is_wrong(make_repo, tmp_path, m
 
 
 def test_publish_skip_in_upper_env_is_rejected(make_repo):
-    from conftest import base_config
+    from CICD.tests.conftest import base_config
     from fabcicd.static_checks import run_static_checks
     config = base_config()
     config["publish"]["skip"]["ITG"] = True
@@ -354,7 +354,7 @@ def test_ambiguous_framework_item_blocks_preflight(make_repo):
 
 
 def test_verify_scans_all_published_pipelines_for_sandbox_guid(make_repo):
-    from conftest import invoke_activity, write_item
+    from CICD.tests.conftest import invoke_activity, write_item
     root = make_repo()
     write_item(root, "Flux", "pl_sans_regle", "DataPipeline", {"pipeline-content.json": pipeline([])})
     ctx = load_repo(root, "ITG")
@@ -488,7 +488,7 @@ def dp_deps(category, **extra):
 
 
 def dp_repo(make_repo, category, **extra):
-    from conftest import base_config
+    from CICD.tests.conftest import base_config
     return make_repo(config=base_config(workspace_prefix=ws_name(category, "{env}")), dependencies=dp_deps(category, **extra))
 
 
