@@ -6,6 +6,7 @@
 #
 # Aucun accès au tenant Fabric, aucun secret : ces contrôles portent sur le
 # contenu du dépôt uniquement.
+# ── parameters — contrat du template de validation
 parameters:
   - name: pythonVersion
     type: string
@@ -15,6 +16,7 @@ parameters:
     default:
       vmImage: ubuntu-24.04
 
+# ── stages — etapes de validation
 stages:
   - stage: Validate
     displayName: "Validation du dépôt Fabric"

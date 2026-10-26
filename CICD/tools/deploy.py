@@ -38,18 +38,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from CICD.tools.fabcicd import log
-from fabcicd import ENVIRONMENTS  # noqa: E402
-from CICD.tools.fabcicd.findings import Findings  # noqa: E402
-from CICD.tools.fabcicd.items import discover_items  # noqa: E402
-from CICD.tools.fabcicd.registry import Registry, default_registry_path  # noqa: E402
-from CICD.tools.fabcicd.report import Report  # noqa: E402
-from CICD.tools.fabcicd.settings import SettingsError, load_repo  # noqa: E402
-from CICD.tools.fabcicd.static_checks import run_static_checks  # noqa: E402
+from fabcicd import ENVIRONMENTS, log  # noqa: E402
+from fabcicd.findings import Findings  # noqa: E402
+from fabcicd.items import discover_items  # noqa: E402
+from fabcicd.registry import Registry, default_registry_path  # noqa: E402
+from fabcicd.report import Report  # noqa: E402
+from fabcicd.settings import SettingsError, load_repo  # noqa: E402
+from fabcicd.static_checks import run_static_checks  # noqa: E402
 
 EXIT_OK, EXIT_CHECKS, EXIT_DEPLOY, EXIT_POLICY, EXIT_USAGE = 0, 1, 2, 3, 4
 
 
+# Construit l'identité Azure utilisée pour s'authentifier auprès de Fabric,
+# selon le mode choisi (fédération CLI sans secret, ou Service Principal + secret).
 def build_credential(mode: str):
     """Identité de déploiement.
 
@@ -58,21 +59,26 @@ def build_credential(mode: str):
     secret : ClientSecretCredential à partir de FABRIC_TENANT_ID, FABRIC_CLIENT_ID,
              FABRIC_CLIENT_SECRET (transitoire, secret lu dans Key Vault).
     """
+    # Mode CLI : identité fédérée, aucun secret à manipuler.
     if mode == "cli":
         from azure.identity import AzureCliCredential
         return AzureCliCredential()
+    # Mode secret : on lit tenant/client/secret dans l'environnement et on les contrôle.
     if mode == "secret":
         from azure.identity import ClientSecretCredential
         values = {}
+        # Chaque variable attendue doit être présente et non vide.
         for name in ("FABRIC_TENANT_ID", "FABRIC_CLIENT_ID", "FABRIC_CLIENT_SECRET"):
             value = os.getenv(name, "").strip()
             if not value:
                 raise RuntimeError(f"variable {name} absente ou vide")
+            # Macro ADO non résolue ($(...)) : le secret n'a pas été injecté correctement.
             if value.startswith("$(") and value.endswith(")"):
                 # Azure DevOps laisse la macro telle quelle quand la variable n'existe pas :
                 # secret absent du coffre, non lu par AzureKeyVault@2 ou mal nommé.
                 raise RuntimeError(f"variable {name} non résolue ({value}) : secret absent ou non lu dans le coffre")
             values[name] = value
+        # Tenant et client doivent être des GUID valides (échoue sinon avant toute requête).
         for name in ("FABRIC_TENANT_ID", "FABRIC_CLIENT_ID"):
             uuid.UUID(values[name])
         log.info("auth", f"Service Principal {values['FABRIC_CLIENT_ID']} (secret lu depuis l'environnement, non affiché)")
@@ -80,11 +86,13 @@ def build_credential(mode: str):
     raise RuntimeError(f"mode d'authentification inconnu : {mode}")
 
 
+# Charge le registre des GUID connus (chemin fourni en argument ou chemin par défaut).
 def _registry(args) -> Registry:
     path = Path(args.registry) if getattr(args, "registry", None) else default_registry_path()
     return Registry.load(path)
 
 
+# Sous-commande « validate » : exécute les contrôles statiques et renvoie OK ou échec bloquant.
 def cmd_validate(args) -> int:
     root = Path(args.repo)
     with log.group(f"Contrôles statiques — {root.name}"):
@@ -96,6 +104,7 @@ def cmd_validate(args) -> int:
     return EXIT_OK if findings.ok else EXIT_CHECKS
 
 
+# Écrit l'inventaire des GUID trouvés dans un fichier CSV (une ligne par occurrence) pour audit.
 def _write_inventory(occurrences, path: Path, repository: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -106,6 +115,7 @@ def _write_inventory(occurrences, path: Path, repository: str) -> None:
     log.info("scan", f"inventaire écrit : {path} ({len(occurrences)} occurrence(s))")
 
 
+# Sous-commande « scan » : produit uniquement l'inventaire CSV des GUID (audit des dépôts).
 def cmd_scan(args) -> int:
     root = Path(args.repo)
     result = run_static_checks(root, _registry(args))
@@ -113,15 +123,19 @@ def cmd_scan(args) -> int:
     return EXIT_OK
 
 
+# Sous-commande « deploy » (et « verify » via verify_only) : orchestre tout l'enchaînement
+# pré-vol -> portes -> publication -> vérification -> tests fonctionnels, et produit un rapport.
 def cmd_deploy(args, verify_only: bool = False) -> int:
-    from CICD.tools.fabcicd.fabric_api import FabricClient
-    from CICD.tools.fabcicd.preflight import run_preflight
-    from CICD.tools.fabcicd.verify import run_verify
+    from fabcicd.fabric_api import FabricClient
+    from fabcicd.preflight import run_preflight
+    from fabcicd.verify import run_verify
 
+    # 1) Valider l'environnement cible demandé.
     env = args.env.upper()
     if env not in ENVIRONMENTS:
         log.error("usage", f"environnement inconnu : {args.env}")
         return EXIT_USAGE
+    # 2) Charger la config du dépôt et découvrir les items à publier.
     root = Path(args.repo)
     try:
         ctx = load_repo(root, env)
@@ -130,17 +144,21 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
         log.error("load", str(exc))
         return EXIT_CHECKS
 
+    # 3) Déterminer le mode effectif et contrôler la cohérence du rôle déclaré (CD.yml vs dependencies.yml).
     mode = "verify" if verify_only else args.mode
     expected_role = getattr(args, "expected_role", None)
     if expected_role and expected_role != ctx.role:
         log.error("load", f"rôle incohérent : CD.yml déclare « {expected_role} », dependencies.yml « {ctx.role} »")
         return EXIT_CHECKS
+    # 4) Préparer le rapport de déploiement (écrit à chaque sortie, succès ou échec).
     report = Report(ctx.repository, env, mode)
     report_dir = Path(args.report_dir)
 
-    from CICD.tools.fabcicd.dependencies import rule_violations
+    # 5) Contrôler la matrice de dépendances (R1-R6) avant toute autre opération.
+    from fabcicd.dependencies import rule_violations
     violations = rule_violations(ctx)
 
+    # Clôture commune : fige le statut, écrit le rapport, et renvoie le code de sortie.
     def finish(status: str, code: int) -> int:
         report.finish(status)
         report.write(report_dir)
@@ -169,9 +187,10 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
         report.add_step("policy", policy)
         return finish("refused", EXIT_POLICY)
 
+    # 6) Authentifier et instancier le client Fabric (toute écriture reste à venir).
     try:
         credential = build_credential(args.auth)
-        from CICD.tools.fabcicd.fabric_api import FABRIC_SCOPE
+        from fabcicd.fabric_api import FABRIC_SCOPE
         credential.get_token(FABRIC_SCOPE)  # échec d'authentification détecté ici (code 4), pas au pré-vol
         client = FabricClient(credential)
     except Exception as exc:
@@ -179,6 +198,7 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
         report.add_step("auth", status="failed", extra={"error": str(exc)})
         return finish("failed", EXIT_USAGE)
 
+    # 7) Pré-vol : résout en lecture seule toutes les références (workspace, items, connexions).
     with log.group(f"Pré-vol {ctx.repository} → {env}"):
         try:
             pre = run_preflight(ctx, env, client)
@@ -191,10 +211,11 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
     if not pre.findings.ok:
         return finish("failed", EXIT_CHECKS)
 
+    # 8) Porte Framework : vérifie dans l'historique ADO que le Framework est bien disponible.
     if not verify_only and args.framework_gate == "ado":
-        from CICD.tools.fabcicd.ado_gate import AdoClient, check_framework_deployed
-        from CICD.tools.fabcicd.branches import gate_branch
-        from CICD.tools.fabcicd.dependencies import needs_framework_gate
+        from fabcicd.ado_gate import AdoClient, check_framework_deployed
+        from fabcicd.branches import gate_branch
+        from fabcicd.dependencies import needs_framework_gate
         # v1.3 : une seule porte, le Framework, pour les ADP et les BDP (R1-R4). Aucune porte
         # pour le Framework ni pour UCS (R5) ; jamais de porte entre Data Products (R2, R3).
         # La porte vérifie la DISPONIBILITÉ (dernier déploiement réussi sur l'environnement) :
@@ -225,10 +246,12 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
             if not gate.findings.ok:
                 return finish("failed", EXIT_CHECKS)
 
+    # 9) Point d'arrêt du mode validate : tout a été contrôlé, rien n'est écrit.
     if mode == "validate":
         log.info("deploy", "mode validate : arrêt avant publication (aucune écriture effectuée)")
         return finish("validated", EXIT_OK)
 
+    # 10) Publication effective déléguée à fabric-cicd (seule étape qui écrit dans Fabric).
     if not verify_only:
         from fabric_cicd import deploy_with_config
         with log.group(f"Publication fabric-cicd {ctx.repository} → {env}"):
@@ -240,6 +263,7 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
                 report.add_step("publish", status="failed", extra={"error": str(exc)[:2000]})
                 return finish("failed", EXIT_DEPLOY)
 
+    # 11) Vérification post-déploiement : relit ce qui a été publié et contrôle les références.
     with log.group(f"Vérification post-déploiement {env}"):
         try:
             verify = run_verify(ctx, env, client, items, pre)
@@ -251,8 +275,9 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
     if not verify.ok:
         return finish("failed", EXIT_CHECKS)
 
+    # 12) Tests fonctionnels (smoke tests) optionnels : exécution d'items Fabric après déploiement.
     if not verify_only and ctx.smoke_tests(env):
-        from CICD.tools.fabcicd.smoke import run_smoke_tests
+        from fabcicd.smoke import run_smoke_tests
         with log.group(f"Tests fonctionnels {env}"):
             try:
                 smoke = run_smoke_tests(ctx, env, client, pre)
@@ -266,8 +291,9 @@ def cmd_deploy(args, verify_only: bool = False) -> int:
     return finish("succeeded", EXIT_OK)
 
 
+# Sous-commande « lookup » : affiche le nom de chaque workspace à partir de son ID (lecture seule).
 def cmd_lookup(args) -> int:
-    from CICD.tools.fabcicd.fabric_api import FabricApiError, FabricClient
+    from fabcicd.fabric_api import FabricApiError, FabricClient
     client = FabricClient(build_credential(args.auth))
     code = EXIT_OK
     for workspace_id in args.ids:
@@ -279,9 +305,11 @@ def cmd_lookup(args) -> int:
     return code
 
 
+# Sous-commande « manifest » : crée l'empreinte SHA-256 de l'artefact, ou la contrôle (--check).
 def cmd_manifest(args) -> int:
-    from CICD.tools.fabcicd.manifest import check_manifest, write_manifest
+    from fabcicd.manifest import check_manifest, write_manifest
     root = Path(args.path)
+    # Mode contrôle : compare l'empreinte actuelle à celle du fichier manifeste fourni.
     if args.check:
         ok, message = check_manifest(root, Path(args.check))
         (log.info if ok else log.error)("manifest", message)
@@ -295,9 +323,11 @@ def cmd_manifest(args) -> int:
     return EXIT_OK
 
 
+# Sous-commande « check-branch » : refuse un artefact construit depuis une branche non autorisée.
 def cmd_check_branch(args) -> int:
-    from CICD.tools.fabcicd.branches import BranchPolicyError, matches, parse_policy
+    from fabcicd.branches import BranchPolicyError, matches, parse_policy
 
+    # Avec --env : la branche autorisée découle de la règle de branches de cet environnement.
     if args.env:
         try:
             pattern = parse_policy(args.policy)[args.env.upper()]
@@ -315,9 +345,10 @@ def cmd_check_branch(args) -> int:
     return EXIT_POLICY
 
 
+# Sous-commande « route » : déduit l'environnement cible depuis la branche source et le publie.
 def cmd_route(args) -> int:
     """Environnement cible du run : publié en variable de sortie ``targetEnv`` (ADO)."""
-    from CICD.tools.fabcicd.branches import ORDER, BranchPolicyError, parse_policy, target_environment
+    from fabcicd.branches import ORDER, BranchPolicyError, parse_policy, target_environment
 
     try:
         policy = parse_policy(args.policy)
@@ -329,6 +360,7 @@ def cmd_route(args) -> int:
         rules = ", ".join(f"{e} ← {policy[e]}" for e in ORDER)
         log.error("route", f"branche {args.branch} : aucun environnement autorisé ({rules})")
         return EXIT_POLICY
+    # Garde-fou : ne pas router au-delà du dernier environnement autorisé (lastEnvironment).
     last = (args.last_env or "PRD").upper()
     if last in ORDER and ORDER.index(env) > ORDER.index(last):
         log.error("route", f"branche {args.branch} → {env}, mais la CD s'arrête à {last} (lastEnvironment)")
@@ -338,11 +370,13 @@ def cmd_route(args) -> int:
     return EXIT_OK
 
 
+# Point d'entrée CLI : déclare toutes les sous-commandes puis route vers la fonction correspondante.
 def main(argv=None) -> int:
     log.configure_stdout()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
 
+    # Déclaration des arguments de chaque sous-commande (validate, deploy/verify, scan, lookup, …).
     p = sub.add_parser("validate", help="contrôles statiques")
     p.add_argument("--repo", required=True)
     p.add_argument("--registry")
@@ -389,6 +423,7 @@ def main(argv=None) -> int:
     p.add_argument("--policy")
     p.add_argument("--last-env", choices=["DEV", "ITG", "PPR", "PRD"], default="PRD")
 
+    # Aiguillage : chaque commande analysée appelle sa fonction cmd_* dédiée.
     args = parser.parse_args(argv)
     if args.command == "manifest":
         return cmd_manifest(args)

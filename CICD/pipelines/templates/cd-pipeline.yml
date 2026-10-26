@@ -30,6 +30,7 @@
 # La progression ITG → PPR → PRD suit le flux Git develop → release/* → main (PR).
 # Les approbations PPR/PRD sont portées par les Environments ADO
 # fabric-ppr / fabric-prd (Approvals and checks), pas par ce YAML.
+# ── parameters — contrat du template (repo, role, env cible, auth, porte Framework)
 parameters:
   - name: repository
     type: string
@@ -107,6 +108,7 @@ parameters:
     type: string
     default: "3.12"
 
+# ── stages — etapes du run (validation de l'artefact puis un stage par environnement)
 stages:
   # ------------------------------------------------------------------ 0
   - stage: Validate_Artifact

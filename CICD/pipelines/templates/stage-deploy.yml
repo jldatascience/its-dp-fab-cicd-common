@@ -16,6 +16,7 @@
 #   → publication fabric-cicd → vérification post-déploiement → rapport.
 # Arrêt : tout code de sortie non nul de deploy.py fait échouer le stage, donc
 #   les stages suivants ne s'exécutent pas.
+# ── parameters — contrat du stage (environnement, auth, secrets)
 parameters:
   - name: env
     type: string
@@ -59,6 +60,7 @@ parameters:
   - name: pythonVersion
     type: string
 
+# ── stages — le stage de deploiement d'UN environnement
 stages:
   - stage: Deploy_${{ parameters.env }}
     displayName: "${{ parameters.env }} — ${{ parameters.mode }}"

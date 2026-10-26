@@ -1,18 +1,22 @@
 # CI du socle commun lui-même (dépôt its-dp-fab-cicd-common).
 # Toute évolution des templates ou de l'outillage passe par une PR validée par
 # ce pipeline, puis par un tag SemVer (v1.0.0, v1.1.0…) référencé par les 11 dépôts.
+# ── trigger — CI du socle lui-meme
 trigger:
   branches:
     include: [main]
   tags:
     include: ["v*"]
+# ── pr — validation sur PR
 pr:
   branches:
     include: [main]
 
+# ── pool — image d'agent
 pool:
   vmImage: ubuntu-24.04
 
+# ── steps — lint YAML + suite de tests pytest
 steps:
   - checkout: self
     path: s/cicd_common
