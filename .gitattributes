@@ -1,4 +1,4 @@
-# Normalisation des fins de ligne Windows / macOS
+# Normalisation 
 * text=auto eol=lf
 *.py text eol=lf
 *.yml text eol=lf
