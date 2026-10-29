@@ -13,7 +13,7 @@ parameters:
     default: "3.12"
   - name: cicdRoot
     # Dossier CICD/ des dépôts (socle : tools/, consommateurs : pipelines/ et deployment/).
-    # Doit rester égal à DEPLOYMENT_DIR de tools/fabcicd/settings.py (CICD/deployment).
+    # Transmis à deploy.py par la variable d'environnement CICD_ROOT (DEPLOYMENT_DIR = <cicdRoot>/deployment).
     displayName: "Dossier CICD des dépôts (socle et consommateur)"
     type: string
     default: CICD
@@ -59,6 +59,8 @@ stages:
                 --repo "$(Pipeline.Workspace)/s/repo" \
                 --inventory-csv "$(Build.ArtifactStagingDirectory)/guid-inventory.csv"
             displayName: "Structure, JSON, config.yml, parameter.yml, GUID, secrets"
+            env:
+              CICD_ROOT: ${{ parameters.cicdRoot }}
 
           - publish: "$(Build.ArtifactStagingDirectory)"
             artifact: "validation-$(System.JobAttempt)"

@@ -134,11 +134,14 @@ stages:
                   displayName: "Branche source autorisée pour ${{ parameters.env }}"
                   env:
                     CI_SOURCE_BRANCH: $(resources.pipeline.${{ parameters.ciAlias }}.sourceBranch)
+                    CICD_ROOT: ${{ parameters.cicdRoot }}
 
                 - script: >-
                     python "$(TOOLS)/deploy.py" manifest --path "$(ARTIFACT_DIR)"
                     --check "$(Pipeline.Workspace)/deployment-manifest/deployment-manifest.json"
                   displayName: "Intégrité de l'artefact (SHA-256)"
+                  env:
+                    CICD_ROOT: ${{ parameters.cicdRoot }}
 
                 - ${{ if eq(parameters.secretSource, 'keyVault') }}:
                     - task: AzureKeyVault@2
@@ -170,6 +173,7 @@ stages:
                         CI_RUN_ID: $(resources.pipeline.${{ parameters.ciAlias }}.runID)
                         CI_RUN_NAME: $(resources.pipeline.${{ parameters.ciAlias }}.runName)
                         CI_COMMIT: $(resources.pipeline.${{ parameters.ciAlias }}.sourceCommit)
+                        CICD_ROOT: ${{ parameters.cicdRoot }}
 
                 # ---- Fédération d'identité (cible : aucun secret) ---------------
                 - ${{ if eq(parameters.authMode, 'cli') }}:
@@ -190,6 +194,7 @@ stages:
                         CI_RUN_ID: $(resources.pipeline.${{ parameters.ciAlias }}.runID)
                         CI_RUN_NAME: $(resources.pipeline.${{ parameters.ciAlias }}.runName)
                         CI_COMMIT: $(resources.pipeline.${{ parameters.ciAlias }}.sourceCommit)
+                        CICD_ROOT: ${{ parameters.cicdRoot }}
 
                 - publish: "$(REPORT_DIR)"
                   artifact: "deployment-report-${{ parameters.env }}-$(System.JobAttempt)"

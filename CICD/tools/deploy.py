@@ -43,7 +43,7 @@ from fabcicd.findings import Findings  # noqa: E402
 from fabcicd.items import discover_items  # noqa: E402
 from fabcicd.registry import Registry, default_registry_path  # noqa: E402
 from fabcicd.report import Report  # noqa: E402
-from fabcicd.settings import SettingsError, load_repo  # noqa: E402
+from fabcicd.settings import SettingsError, deployment_dir_error, load_repo  # noqa: E402
 from fabcicd.static_checks import run_static_checks  # noqa: E402
 
 EXIT_OK, EXIT_CHECKS, EXIT_DEPLOY, EXIT_POLICY, EXIT_USAGE = 0, 1, 2, 3, 4
@@ -425,6 +425,12 @@ def main(argv=None) -> int:
 
     # Aiguillage : chaque commande analysée appelle sa fonction cmd_* dédiée.
     args = parser.parse_args(argv)
+    # Garde-fou : les commandes qui lisent un dépôt (--repo) exigent <repo>/DEPLOYMENT_DIR.
+    if getattr(args, "repo", None) is not None:
+        error = deployment_dir_error(Path(args.repo))
+        if error:
+            log.error("config", error)
+            return EXIT_USAGE
     if args.command == "manifest":
         return cmd_manifest(args)
     if args.command == "check-branch":

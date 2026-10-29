@@ -8,6 +8,13 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
 
 ## [Unreleased]
 
+### Changed
+
+- `cicdRoot` devient la seule source de vérité du dossier CI/CD : les templates le transmettent à
+  `deploy.py` par la variable `CICD_ROOT` (défaut `CICD`), dont `fabcicd/settings.py` dérive
+  `DEPLOYMENT_DIR` ; `deploy.py` s'arrête (code 4) avec un message explicite si
+  `<repo>/<CICD_ROOT>/deployment` est introuvable.
+
 ## [1.4.1] - 2026-10-29
 
 ### Fixed

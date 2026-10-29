@@ -1,6 +1,7 @@
 """Chargement des fichiers de configuration d'un dépôt Fabric.
 
-Trois fichiers, tous dans ``CICD/deployment/`` (``DEPLOYMENT_DIR``) :
+Trois fichiers, tous dans ``<CICD_ROOT>/deployment/`` (``DEPLOYMENT_DIR``, par défaut
+``CICD/deployment/``) :
 
 * ``config.yml``      : format fabric-cicd (lu tel quel par ``deploy_with_config``) ;
 * ``parameter.yml``   : format fabric-cicd (règles ``key_value_replace``…) ;
@@ -16,6 +17,7 @@ version 1.4.0) : une clé ``itg`` ne serait jamais appliquée pour ``ITG``.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,8 +29,13 @@ from . import ENVIRONMENTS
 
 PLACEHOLDER_MARK = "__A_RELEVER__"
 
+# Dossier CI/CD des dépôts : paramètre de template ``cicdRoot``, transmis par la variable
+# d'environnement CICD_ROOT (absente ou vide : ``CICD``). Lu une fois, à l'import.
+CICD_ROOT_DEFAULT = "CICD"
+CICD_ROOT = os.environ.get("CICD_ROOT", "").strip() or CICD_ROOT_DEFAULT
+
 # Dossier des trois fichiers de configuration, relatif à la racine du dépôt (ou de l'artefact).
-DEPLOYMENT_DIR = Path("CICD") / "deployment"
+DEPLOYMENT_DIR = Path(CICD_ROOT) / "deployment"
 
 
 class SettingsError(Exception):
@@ -63,7 +70,7 @@ def is_placeholder(value: Any) -> bool:
 
 @dataclass
 class RepoContext:
-    """Vue chargée d'un dépôt (racine = dossier qui contient ``CICD/deployment/``)."""
+    """Vue chargée d'un dépôt (racine = dossier qui contient ``DEPLOYMENT_DIR``)."""
 
     root: Path
     config: dict
@@ -183,6 +190,19 @@ class RepoContext:
     # ---- parameter.yml -------------------------------------------------
     def key_value_rules(self) -> list[dict]:
         return list(self.parameter.get("key_value_replace") or [])
+
+
+def deployment_dir_error(root: Path) -> Optional[str]:
+    """Message d'erreur si ``<root>/DEPLOYMENT_DIR`` n'existe pas, ``None`` sinon."""
+    deployment = (Path(root) / DEPLOYMENT_DIR).resolve()
+    if deployment.is_dir():
+        return None
+    raw = os.environ.get("CICD_ROOT")
+    origin = f"CICD_ROOT={raw!r}" if raw and raw.strip() else f"CICD_ROOT non définie, défaut {CICD_ROOT_DEFAULT!r}"
+    return (
+        f"Dossier de déploiement introuvable : {deployment} ({origin}) "
+        "– vérifier le paramètre cicdRoot / la variable CICD_ROOT"
+    )
 
 
 def _resolve_relative(base: Path, value: str) -> Path:

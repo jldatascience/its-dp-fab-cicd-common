@@ -40,7 +40,7 @@ Les templates et `deploy.py` lisent, à partir de la racine du dépôt (ou de l'
 | Chemin | Lu par |
 |---|---|
 | `CICD/pipelines/CI.yml`, `CD.yml`, `PR-Validation.yml` | Azure DevOps ; yamllint (validation de PR) |
-| `CICD/deployment/config.yml`, `parameter.yml`, `dependencies.yml` | `deploy.py` (`DEPLOYMENT_DIR` de `CICD/tools/fabcicd/settings.py`) ; yamllint |
+| `CICD/deployment/config.yml`, `parameter.yml`, `dependencies.yml` | `deploy.py` (`DEPLOYMENT_DIR` = `<CICD_ROOT>/deployment`, cf. ci-dessous) ; yamllint |
 | `fabric/` | fabric-cicd, via `repository_directory: "../../fabric"` dans `config.yml` |
 
 `repository_directory` et `parameter` sont résolus **relativement au dossier de `config.yml`**
@@ -49,7 +49,13 @@ d'exécution du pipeline.
 
 Les templates reçoivent ce dossier par le paramètre `cicdRoot` (défaut `CICD`), utilisé à la fois
 pour le socle (`<cicdRoot>/tools`) et pour le dépôt consommateur (`<cicdRoot>/deployment`,
-`<cicdRoot>/pipelines`). Les dépôts l'étendent ainsi :
+`<cicdRoot>/pipelines`). C'est la seule source de vérité : chaque étape qui exécute `deploy.py`
+le transmet par la variable d'environnement `CICD_ROOT` (`env: CICD_ROOT: ${{ parameters.cicdRoot }}`),
+dont `fabcicd/settings.py` dérive `DEPLOYMENT_DIR = <CICD_ROOT>/deployment`, relatif à la racine
+passée en `--repo`. Variable absente ou vide (exécution locale, tests) : `CICD`, soit
+`CICD/deployment`. Si ce dossier n'existe pas sous `--repo`, `validate`, `scan`, `deploy` et
+`verify` s'arrêtent (code 4) avec le chemin cherché et la valeur de `CICD_ROOT`.
+Les dépôts l'étendent ainsi :
 
 ```yaml
 extends:

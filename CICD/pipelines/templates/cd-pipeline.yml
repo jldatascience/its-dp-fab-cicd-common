@@ -109,7 +109,7 @@ parameters:
     default: "3.12"
   - name: cicdRoot
     # Dossier CICD/ des dépôts (socle : tools/, consommateurs : pipelines/ et deployment/).
-    # Doit rester égal à DEPLOYMENT_DIR de tools/fabcicd/settings.py (CICD/deployment).
+    # Transmis à deploy.py par la variable d'environnement CICD_ROOT (DEPLOYMENT_DIR = <cicdRoot>/deployment).
     displayName: "Dossier CICD des dépôts (socle et consommateur)"
     type: string
     default: CICD
@@ -145,11 +145,14 @@ stages:
             env:
               # Passée par variable d'environnement : un nom de branche n'est jamais interprété par le shell.
               CI_SOURCE_BRANCH: $(resources.pipeline.${{ parameters.ciAlias }}.sourceBranch)
+              CICD_ROOT: ${{ parameters.cicdRoot }}
           - script: >-
               python "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools/deploy.py" validate
               --repo "$(Pipeline.Workspace)/${{ parameters.ciAlias }}/${{ parameters.artifactName }}/${{ parameters.artifactSubPath }}"
               --inventory-csv "$(Build.ArtifactStagingDirectory)/manifest/guid-inventory.csv"
             displayName: "Contrôles statiques sur l'artefact"
+            env:
+              CICD_ROOT: ${{ parameters.cicdRoot }}
           - script: >-
               python "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools/deploy.py" manifest
               --path "$(Pipeline.Workspace)/${{ parameters.ciAlias }}/${{ parameters.artifactName }}/${{ parameters.artifactSubPath }}"
@@ -161,6 +164,7 @@ stages:
               CI_RUN_NAME: $(resources.pipeline.${{ parameters.ciAlias }}.runName)
               CI_COMMIT: $(resources.pipeline.${{ parameters.ciAlias }}.sourceCommit)
               CI_SOURCE_BRANCH: $(resources.pipeline.${{ parameters.ciAlias }}.sourceBranch)
+              CICD_ROOT: ${{ parameters.cicdRoot }}
           - publish: "$(Build.ArtifactStagingDirectory)/manifest"
             artifact: deployment-manifest
             displayName: "Manifeste et inventaire des GUID"
