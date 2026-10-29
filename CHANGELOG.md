@@ -8,6 +8,17 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
 
 ## [Unreleased]
 
+### Fixed
+
+- `fabcicd.__version__` aligné sur la version publiée : `"1.0.0"` → `"1.5.0"`. Le tag `v1.5.0`,
+  déjà publié, contient encore `"1.0.0"` et n'est pas déplacé : la correction sera livrée en
+  `v1.5.1` (`__version__` à passer à `"1.5.1"` avec la section `[1.5.1]`).
+
+### Added
+
+- Test `tests/test_version.py` : `fabcicd.__version__` doit être égal à la dernière version
+  numérotée de ce fichier.
+
 ## [1.5.0] - 2026-10-29
 
 ### Changed
