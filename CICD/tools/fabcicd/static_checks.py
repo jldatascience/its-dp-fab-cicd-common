@@ -34,7 +34,7 @@ from . import ENVIRONMENTS
 from .findings import Findings
 from .items import ItemDiscoveryError, RepoItem, discover_items, item_files
 from .registry import Registry
-from .settings import GUID_RE, ZERO_GUID, RepoContext, SettingsError, is_placeholder, load_repo
+from .settings import DEPLOYMENT_DIR, GUID_RE, ZERO_GUID, RepoContext, SettingsError, is_placeholder, load_repo
 from .variables import VariableSyntaxError, parse_variable, rule_value_for_env
 
 STEP = "static"
@@ -121,7 +121,7 @@ def _iter_text_files(root: Path) -> Iterable[Path]:
 
 def check_structure(root: Path, findings: Findings) -> bool:
     ok = True
-    for rel in ("deployment/config.yml", "deployment/dependencies.yml"):
+    for rel in ((DEPLOYMENT_DIR / "config.yml").as_posix(), (DEPLOYMENT_DIR / "dependencies.yml").as_posix()):
         if not (root / rel).is_file():
             findings.error("STRUCT_MISSING_FILE", f"Fichier obligatoire absent : {rel}")
             ok = False
@@ -136,15 +136,18 @@ def check_structure(root: Path, findings: Findings) -> bool:
                     "être déclenchée par la même CI (supprimer le fichier et repointer la définition ADO vers CD.yml)",
                     path.relative_to(root).as_posix(),
                 )
-    legacy = root / "deployment" / "deploy.py"
-    if legacy.is_file():
+    # Ancien script : à la racine (disposition d'origine) ou sous CICD/deployment/.
+    for legacy in (root / "deployment" / "deploy.py", root / DEPLOYMENT_DIR / "deploy.py"):
+        if not legacy.is_file():
+            continue
+        rel = legacy.relative_to(root).as_posix()
         text = legacy.read_text(encoding="utf-8", errors="replace")
         if GUID_RE.search(text):
             findings.error(
                 "STRUCT_LEGACY_DEPLOY_HARDCODED_IDS",
-                "deployment/deploy.py contient des GUID en dur (ancien script) : le supprimer, "
+                f"{rel} contient des GUID en dur (ancien script) : le supprimer, "
                 "le déploiement passe par le socle commun et config.yml",
-                "deployment/deploy.py",
+                rel,
             )
     return ok
 

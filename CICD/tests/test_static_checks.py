@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 import yaml
-from CICD.tests.conftest import SANDBOX_WS, base_config, base_dependencies, invoke_activity, pipeline, write_item
+from conftest import SANDBOX_WS, base_config, base_dependencies, invoke_activity, pipeline, write_item
 
 from fabcicd.registry import Registry
 from fabcicd.static_checks import run_static_checks
@@ -157,7 +157,7 @@ def test_nested_activity_with_recursive_path_passes(make_repo, tmp_path):
         {"name": "if", "type": "IfCondition", "typeProperties": {"ifFalseActivities": [
             invoke_activity("log_ko", "11111111-0000-4000-8000-000000000003", SANDBOX_WS)]}}
     ])
-    base_rules = yaml.safe_load((make_repo() / "deployment" / "parameter.yml").read_text())["key_value_replace"]
+    base_rules = yaml.safe_load((make_repo() / "CICD" / "deployment" / "parameter.yml").read_text())["key_value_replace"]
     rules = base_rules + [
         {"find_key": '$..*[?(@.name=="log_ko")].typeProperties.workspaceId',
          "replace_value": {"_ALL_": "$workspace.$id"}, "item_type": "DataPipeline", "item_name": "pl_nested"},
@@ -165,7 +165,7 @@ def test_nested_activity_with_recursive_path_passes(make_repo, tmp_path):
          "replace_value": {"_ALL_": "$items.DataPipeline.pl_get_ws_lh_ids.$id"}, "item_type": "DataPipeline", "item_name": "pl_nested"},
     ]
     root = tmp_path / "repo"
-    (root / "deployment" / "parameter.yml").write_text(yaml.safe_dump({"key_value_replace": rules}))
+    (root / "CICD" / "deployment" / "parameter.yml").write_text(yaml.safe_dump({"key_value_replace": rules}))
     write_item(root, "Flux", "pl_nested", "DataPipeline", {"pipeline-content.json": nested})
     result = run_static_checks(root)
     assert result.findings.ok, [f.message for f in result.findings.errors]
@@ -200,7 +200,7 @@ def test_placeholder_workspace_is_blocking_once_validated(make_repo):
 
 
 def _add_find_replace(root, rule):
-    path = root / "deployment" / "parameter.yml"
+    path = root / "CICD" / "deployment" / "parameter.yml"
     data = yaml.safe_load(path.read_text())
     data["find_replace"] = [rule]
     path.write_text(yaml.safe_dump(data, allow_unicode=True))
@@ -228,16 +228,16 @@ def test_notebook_syntax_error_fails(make_repo):
 
 def test_missing_dependencies_file_fails(make_repo):
     root = make_repo()
-    (root / "deployment" / "dependencies.yml").unlink()
+    (root / "CICD" / "deployment" / "dependencies.yml").unlink()
     assert "STRUCT_MISSING_FILE" in codes(run_static_checks(root))
 
 
 def test_no_publishable_items_fails(make_repo):
     config = base_config()
-    config["core"]["repository_directory"] = "../fabric"
+    config["core"]["repository_directory"] = "../../fabric"
     root = make_repo()
     (root / "fabric").mkdir()
-    (root / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
+    (root / "CICD" / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
     assert "STRUCT_NO_ITEMS" in codes(run_static_checks(root))
 
 

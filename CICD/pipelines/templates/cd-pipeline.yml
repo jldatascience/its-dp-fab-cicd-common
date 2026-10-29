@@ -44,7 +44,7 @@ parameters:
     type: string
     default: fabric
   - name: artifactSubPath
-    displayName: "Sous-dossier de l'artefact qui contient deployment/ (template KPMG : binaries)"
+    displayName: "Sous-dossier de l'artefact qui contient CICD/deployment/ (template KPMG : binaries)"
     type: string
     default: binaries
   - name: sourceBranches
@@ -107,6 +107,12 @@ parameters:
   - name: pythonVersion
     type: string
     default: "3.12"
+  - name: cicdRoot
+    # Dossier CICD/ des dépôts (socle : tools/, consommateurs : pipelines/ et deployment/).
+    # Doit rester égal à DEPLOYMENT_DIR de tools/fabcicd/settings.py (CICD/deployment).
+    displayName: "Dossier CICD des dépôts (socle et consommateur)"
+    type: string
+    default: CICD
 
 # ── stages — etapes du run (validation de l'artefact puis un stage par environnement)
 stages:
@@ -128,8 +134,9 @@ stages:
           - template: steps-python.yml
             parameters:
               pythonVersion: ${{ parameters.pythonVersion }}
+              cicdRoot: ${{ parameters.cicdRoot }}
           - script: >-
-              python "$(Pipeline.Workspace)/s/cicd_common/tools/deploy.py" route
+              python "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools/deploy.py" route
               --branch "$CI_SOURCE_BRANCH"
               --policy "${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}"
               --last-env ${{ parameters.lastEnvironment }}
@@ -139,12 +146,12 @@ stages:
               # Passée par variable d'environnement : un nom de branche n'est jamais interprété par le shell.
               CI_SOURCE_BRANCH: $(resources.pipeline.${{ parameters.ciAlias }}.sourceBranch)
           - script: >-
-              python "$(Pipeline.Workspace)/s/cicd_common/tools/deploy.py" validate
+              python "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools/deploy.py" validate
               --repo "$(Pipeline.Workspace)/${{ parameters.ciAlias }}/${{ parameters.artifactName }}/${{ parameters.artifactSubPath }}"
               --inventory-csv "$(Build.ArtifactStagingDirectory)/manifest/guid-inventory.csv"
             displayName: "Contrôles statiques sur l'artefact"
           - script: >-
-              python "$(Pipeline.Workspace)/s/cicd_common/tools/deploy.py" manifest
+              python "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools/deploy.py" manifest
               --path "$(Pipeline.Workspace)/${{ parameters.ciAlias }}/${{ parameters.artifactName }}/${{ parameters.artifactSubPath }}"
               --out "$(Build.ArtifactStagingDirectory)/manifest/deployment-manifest.json"
               --repository "${{ parameters.repository }}"
@@ -182,6 +189,7 @@ stages:
           adoEnvironmentPrefix: ${{ parameters.adoEnvironmentPrefix }}
           pool: ${{ parameters.pool }}
           pythonVersion: ${{ parameters.pythonVersion }}
+          cicdRoot: ${{ parameters.cicdRoot }}
           branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}
 
   # ------------------------------------------------------------------ ITG
@@ -209,6 +217,7 @@ stages:
           adoEnvironmentPrefix: ${{ parameters.adoEnvironmentPrefix }}
           pool: ${{ parameters.pool }}
           pythonVersion: ${{ parameters.pythonVersion }}
+          cicdRoot: ${{ parameters.cicdRoot }}
           branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}
 
   # ------------------------------------------------------------------ PPR
@@ -233,6 +242,7 @@ stages:
           adoEnvironmentPrefix: ${{ parameters.adoEnvironmentPrefix }}
           pool: ${{ parameters.pool }}
           pythonVersion: ${{ parameters.pythonVersion }}
+          cicdRoot: ${{ parameters.cicdRoot }}
           branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}
 
   # ------------------------------------------------------------------ PRD
@@ -257,4 +267,5 @@ stages:
           adoEnvironmentPrefix: ${{ parameters.adoEnvironmentPrefix }}
           pool: ${{ parameters.pool }}
           pythonVersion: ${{ parameters.pythonVersion }}
+          cicdRoot: ${{ parameters.cicdRoot }}
           branchPolicy: ${{ format('ITG={0},PPR={1},PRD={2}', parameters.sourceBranches.ITG, parameters.sourceBranches.PPR, parameters.sourceBranches.PRD) }}

@@ -11,6 +11,12 @@ parameters:
   - name: pythonVersion
     type: string
     default: "3.12"
+  - name: cicdRoot
+    # Dossier CICD/ des dépôts (socle : tools/, consommateurs : pipelines/ et deployment/).
+    # Doit rester égal à DEPLOYMENT_DIR de tools/fabcicd/settings.py (CICD/deployment).
+    displayName: "Dossier CICD des dépôts (socle et consommateur)"
+    type: string
+    default: CICD
   - name: pool
     type: object
     default:
@@ -36,18 +42,20 @@ stages:
           - template: steps-python.yml
             parameters:
               pythonVersion: ${{ parameters.pythonVersion }}
+              cicdRoot: ${{ parameters.cicdRoot }}
 
           - script: |
               set -euo pipefail
               python -m pip install --disable-pip-version-check --no-input "yamllint>=1.35,<2"
               cd "$(Pipeline.Workspace)/s/repo"
-              # deployment/ + pipelines à la racine (CI.yml, CD.yml, PR-Validation.yml)
-              yamllint -c "$(Pipeline.Workspace)/s/cicd_common/.yamllint.yml" deployment ./*.yml
-            displayName: "Syntaxe YAML (deployment/ et pipelines)"
+              # <cicdRoot>/deployment/ et <cicdRoot>/pipelines/ (CI.yml, CD.yml, PR-Validation.yml)
+              yamllint -c "$(Pipeline.Workspace)/s/cicd_common/.yamllint.yml" \
+                "${{ parameters.cicdRoot }}/deployment" "${{ parameters.cicdRoot }}/pipelines"
+            displayName: "Syntaxe YAML (${{ parameters.cicdRoot }}/deployment et ${{ parameters.cicdRoot }}/pipelines)"
 
           - script: |
               set -euo pipefail
-              python "$(Pipeline.Workspace)/s/cicd_common/tools/deploy.py" validate \
+              python "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools/deploy.py" validate \
                 --repo "$(Pipeline.Workspace)/s/repo" \
                 --inventory-csv "$(Build.ArtifactStagingDirectory)/guid-inventory.csv"
             displayName: "Structure, JSON, config.yml, parameter.yml, GUID, secrets"

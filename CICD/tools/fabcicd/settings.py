@@ -1,6 +1,6 @@
 """Chargement des fichiers de configuration d'un dépôt Fabric.
 
-Trois fichiers, tous dans ``deployment/`` :
+Trois fichiers, tous dans ``CICD/deployment/`` (``DEPLOYMENT_DIR``) :
 
 * ``config.yml``      : format fabric-cicd (lu tel quel par ``deploy_with_config``) ;
 * ``parameter.yml``   : format fabric-cicd (règles ``key_value_replace``…) ;
@@ -23,9 +23,12 @@ from typing import Any, Optional
 
 import yaml
 
-from ....tools.fabcicd import ENVIRONMENTS
+from . import ENVIRONMENTS
 
 PLACEHOLDER_MARK = "__A_RELEVER__"
+
+# Dossier des trois fichiers de configuration, relatif à la racine du dépôt (ou de l'artefact).
+DEPLOYMENT_DIR = Path("CICD") / "deployment"
 
 
 class SettingsError(Exception):
@@ -60,7 +63,7 @@ def is_placeholder(value: Any) -> bool:
 
 @dataclass
 class RepoContext:
-    """Vue chargée d'un dépôt (racine = dossier qui contient ``deployment/``)."""
+    """Vue chargée d'un dépôt (racine = dossier qui contient ``CICD/deployment/``)."""
 
     root: Path
     config: dict
@@ -194,7 +197,7 @@ def load_repo(root: Path, env_for_paths: str = "ITG") -> RepoContext:
     fichier config.yml, comme le fait fabric-cicd 1.4.0.
     """
     root = root.resolve()
-    deployment = root / "deployment"
+    deployment = root / DEPLOYMENT_DIR
     config_path = deployment / "config.yml"
     config = load_yaml(config_path) or {}
     if not isinstance(config, dict):
@@ -204,7 +207,7 @@ def load_repo(root: Path, env_for_paths: str = "ITG") -> RepoContext:
     dependencies = load_yaml(dependencies_path) or {}
 
     core = config.get("core") or {}
-    repo_dir_value = env_value(core.get("repository_directory"), env_for_paths) or ".."
+    repo_dir_value = env_value(core.get("repository_directory"), env_for_paths) or "../../fabric"
     items_root = _resolve_relative(config_path.parent, str(repo_dir_value))
 
     parameter_value = env_value(core.get("parameter"), env_for_paths)

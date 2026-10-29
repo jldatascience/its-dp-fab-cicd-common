@@ -57,7 +57,8 @@ def base_config(workspace_prefix: str = "FR - DP - {env} - FAB - Framework - MAN
     config = {
         "core": {
             "workspace": {env: workspace_prefix.format(env=env) for env in ENVS},
-            "repository_directory": "..",
+            # Relatif à CICD/deployment/config.yml : les items du dépôt de test sont à sa racine.
+            "repository_directory": "../..",
             "item_types_in_scope": ["DataPipeline", "Notebook"],
             "parameter": "parameter.yml",
         },
@@ -96,8 +97,8 @@ def make_repo(tmp_path):
         # Dossier exclu : contient un GUID sandbox qui ne doit PAS être signalé.
         write_item(root, "Flux/old", "pl_old_v1", "DataPipeline",
                    {"pipeline-content.json": pipeline([notebook_activity("x", nb_id, SANDBOX_WS)])})
-        deployment = root / "deployment"
-        deployment.mkdir()
+        deployment = root / "CICD" / "deployment"
+        deployment.mkdir(parents=True)
         (deployment / "config.yml").write_text(yaml.safe_dump(config or base_config(), allow_unicode=True), encoding="utf-8")
         default_param = {
             "key_value_replace": [

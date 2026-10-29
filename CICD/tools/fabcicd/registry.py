@@ -1,6 +1,6 @@
 """Registre des GUID connus, utilisé pour classer les GUID trouvés dans les items.
 
-Le registre est un fichier YAML du socle commun (``registry/known_guids.yml``).
+Le registre est un fichier YAML du socle commun (``CICD/registry/known_guids.yml``).
 Il recense les identifiants relevés lors de l'audit (workspaces par dépôt et par
 environnement, sandbox personnels, capacités, identités). Un GUID qui figure au
 registre et qui n'est couvert par aucune règle ``key_value_replace`` est un

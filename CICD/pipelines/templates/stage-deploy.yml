@@ -59,6 +59,9 @@ parameters:
     type: object
   - name: pythonVersion
     type: string
+  - name: cicdRoot
+    type: string
+    default: CICD
 
 # ── stages — le stage de deploiement d'UN environnement
 stages:
@@ -71,7 +74,7 @@ stages:
       - name: ARTIFACT_DIR
         value: "$(Pipeline.Workspace)/${{ parameters.ciAlias }}/${{ parameters.artifactName }}/${{ parameters.artifactSubPath }}"
       - name: TOOLS
-        value: "$(Pipeline.Workspace)/s/cicd_common/tools"
+        value: "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools"
       - name: REPORT_DIR
         value: "$(Build.ArtifactStagingDirectory)/reports"
       - name: FRAMEWORK_GATE
@@ -123,6 +126,7 @@ stages:
                 - template: steps-python.yml
                   parameters:
                     pythonVersion: ${{ parameters.pythonVersion }}
+                    cicdRoot: ${{ parameters.cicdRoot }}
 
                 - script: >-
                     python "$(TOOLS)/deploy.py" check-branch --branch "$CI_SOURCE_BRANCH"

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
-from ....tools.fabcicd import log
+from . import log
 
 ERROR = "ERROR"
 WARNING = "WARNING"

@@ -11,7 +11,7 @@ ne fait pas lui-même :
 * vérification post-déploiement des références réellement déployées ;
 * rapport de déploiement exploitable (JSON + Markdown).
 
-Point d'entrée : ``python tools/deploy.py --help``.
+Point d'entrée : ``python CICD/tools/deploy.py --help``.
 """
 
 __version__ = "1.0.0"

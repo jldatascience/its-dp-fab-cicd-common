@@ -11,7 +11,7 @@ import json
 
 import pytest
 import yaml
-from CICD.tests.conftest import SANDBOX_WS, FakeCredential, FakeFabric, base_dependencies, notebook_activity, pipeline
+from conftest import SANDBOX_WS, FakeCredential, FakeFabric, base_dependencies, notebook_activity, pipeline
 
 import deploy as cli
 from fabcicd.ado_gate import check_framework_deployed
@@ -65,14 +65,14 @@ def consumer_repo(make_repo, connections=None):
     if connections:
         deps["connections"] = connections
     root = make_repo(dependencies=deps)
-    param = yaml.safe_load((root / "deployment" / "parameter.yml").read_text())
+    param = yaml.safe_load((root / "CICD" / "deployment" / "parameter.yml").read_text())
     param["key_value_replace"].append({
         "find_key": '$.properties.activities[?(@.name=="nb_get_ws_lh_ids")].typeProperties.notebookId',
         "replace_value": {e: f"$workspace.FR - DP - {e} - FAB - Framework - MANAGED.$items.DataPipeline.pl_load_object.$id"
                           for e in ("DEV", "ITG", "PPR", "PRD")},
         "item_type": "DataPipeline", "item_name": "pl_get_ws_lh_ids",
     })
-    (root / "deployment" / "parameter.yml").write_text(yaml.safe_dump(param, allow_unicode=True))
+    (root / "CICD" / "deployment" / "parameter.yml").write_text(yaml.safe_dump(param, allow_unicode=True))
     return root
 
 
@@ -84,9 +84,9 @@ def fake_tenant(extra_ws=None, fw_items=None):
 
 def test_preflight_resolves_framework_references(make_repo):
     root = consumer_repo(make_repo)
-    config = yaml.safe_load((root / "deployment" / "config.yml").read_text())
+    config = yaml.safe_load((root / "CICD" / "deployment" / "config.yml").read_text())
     config["core"]["workspace"]["ITG"] = FW.replace("Framework", "MDS")
-    (root / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
+    (root / "CICD" / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
     workspaces, items = fake_tenant()
     result = run_preflight(load_repo(root, "ITG"), "ITG", FakeFabric(workspaces, items))
     assert result.findings.ok, [f.message for f in result.findings.errors]
@@ -97,9 +97,9 @@ def test_preflight_resolves_framework_references(make_repo):
 
 def _consumer_ctx(make_repo):
     root = consumer_repo(make_repo)
-    config = yaml.safe_load((root / "deployment" / "config.yml").read_text())
+    config = yaml.safe_load((root / "CICD" / "deployment" / "config.yml").read_text())
     config["core"]["workspace"]["ITG"] = FW.replace("Framework", "MDS")
-    (root / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
+    (root / "CICD" / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
     return load_repo(root, "ITG")
 
 
@@ -117,9 +117,9 @@ def test_preflight_fails_on_ambiguous_workspace(make_repo):
 
 def test_preflight_fails_on_missing_connection(make_repo):
     root = consumer_repo(make_repo, connections=[{"name": {e: f"MDS_{e}_DP_FABRIC" for e in ("DEV", "ITG", "PPR", "PRD")}}])
-    config = yaml.safe_load((root / "deployment" / "config.yml").read_text())
+    config = yaml.safe_load((root / "CICD" / "deployment" / "config.yml").read_text())
     config["core"]["workspace"]["ITG"] = FW.replace("Framework", "MDS")
-    (root / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
+    (root / "CICD" / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
     workspaces, items = fake_tenant()
     fabric = FakeFabric(workspaces, items, connections=[{"id": "c1", "displayName": "MDS_DEV_DP_FABRIC"}])
     result = run_preflight(load_repo(root, "ITG"), "ITG", fabric)
@@ -128,9 +128,9 @@ def test_preflight_fails_on_missing_connection(make_repo):
 
 def test_preflight_refuses_placeholder(make_repo):
     root = make_repo()
-    config = yaml.safe_load((root / "deployment" / "config.yml").read_text())
+    config = yaml.safe_load((root / "CICD" / "deployment" / "config.yml").read_text())
     config["core"]["workspace"]["ITG"] = "__A_RELEVER__ITG__xxx"
-    (root / "deployment" / "config.yml").write_text(yaml.safe_dump(config))
+    (root / "CICD" / "deployment" / "config.yml").write_text(yaml.safe_dump(config))
     result = run_preflight(load_repo(root, "ITG"), "ITG", FakeFabric([]))
     assert "PRE_TARGET_PLACEHOLDER" in {f.code for f in result.findings.errors}
 
@@ -246,7 +246,7 @@ def test_manifest_detects_modified_artifact(make_repo, tmp_path):
     manifest = tmp_path / "m" / "deployment-manifest.json"
     assert cli.main(["manifest", "--path", str(root), "--out", str(manifest)]) == cli.EXIT_OK
     assert cli.main(["manifest", "--path", str(root), "--check", str(manifest)]) == cli.EXIT_OK
-    (root / "deployment" / "config.yml").write_text("core: {}\n")
+    (root / "CICD" / "deployment" / "config.yml").write_text("core: {}\n")
     assert cli.main(["manifest", "--path", str(root), "--check", str(manifest)]) == cli.EXIT_CHECKS
 
 
@@ -296,7 +296,7 @@ def test_full_flow_fails_when_deployed_reference_is_wrong(make_repo, tmp_path, m
 
 
 def test_publish_skip_in_upper_env_is_rejected(make_repo):
-    from CICD.tests.conftest import base_config
+    from conftest import base_config
     from fabcicd.static_checks import run_static_checks
     config = base_config()
     config["publish"]["skip"]["ITG"] = True
@@ -354,7 +354,7 @@ def test_ambiguous_framework_item_blocks_preflight(make_repo):
 
 
 def test_verify_scans_all_published_pipelines_for_sandbox_guid(make_repo):
-    from CICD.tests.conftest import invoke_activity, write_item
+    from conftest import invoke_activity, write_item
     root = make_repo()
     write_item(root, "Flux", "pl_sans_regle", "DataPipeline", {"pipeline-content.json": pipeline([])})
     ctx = load_repo(root, "ITG")
@@ -488,7 +488,7 @@ def dp_deps(category, **extra):
 
 
 def dp_repo(make_repo, category, **extra):
-    from CICD.tests.conftest import base_config
+    from conftest import base_config
     return make_repo(config=base_config(workspace_prefix=ws_name(category, "{env}")), dependencies=dp_deps(category, **extra))
 
 

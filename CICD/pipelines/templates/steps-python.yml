@@ -8,6 +8,9 @@ parameters:
   - name: commonPath
     type: string
     default: "$(Pipeline.Workspace)/s/cicd_common"
+  - name: cicdRoot
+    type: string
+    default: CICD
 
 # ── steps — installe Python puis les dependances epinglees du socle
 steps:
@@ -18,7 +21,7 @@ steps:
 
   - script: |
       set -euo pipefail
-      python -m pip install --disable-pip-version-check --no-input -r "${{ parameters.commonPath }}/tools/requirements.txt"
+      python -m pip install --disable-pip-version-check --no-input -r "${{ parameters.commonPath }}/${{ parameters.cicdRoot }}/tools/requirements.txt"
       python -c "import sys; from importlib.metadata import version; print('fabric-cicd', version('fabric-cicd'), '| python', sys.version.split()[0])"
       python -m pip check
     displayName: "Dépendances Python épinglées (socle commun)"

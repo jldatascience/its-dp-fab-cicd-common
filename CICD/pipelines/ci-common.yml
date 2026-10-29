@@ -25,11 +25,12 @@ steps:
       versionSpec: "3.12"
   - script: |
       set -euo pipefail
-      cd "$(Pipeline.Workspace)/s/cicd_common"
+      # pytest.ini, tools/, pipelines/ et registry/ sont sous CICD/ ; .yamllint.yml à la racine.
+      cd "$(Pipeline.Workspace)/s/cicd_common/CICD"
       python -m pip install --disable-pip-version-check -r tools/requirements-dev.txt
       python -m pip check
       python -m compileall -q tools
-      yamllint -c .yamllint.yml pipelines registry
+      yamllint -c ../.yamllint.yml pipelines registry
       python -m pytest --junitxml="$(Build.ArtifactStagingDirectory)/tests.xml"
     displayName: "Compilation, YAML, tests unitaires"
   - task: PublishTestResults@2
