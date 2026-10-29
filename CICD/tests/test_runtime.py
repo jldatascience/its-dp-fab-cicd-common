@@ -354,9 +354,9 @@ def test_ambiguous_framework_item_blocks_preflight(make_repo):
 
 
 def test_verify_scans_all_published_pipelines_for_sandbox_guid(make_repo):
-    from conftest import invoke_activity, write_item
+    from conftest import FABRIC_DIR, invoke_activity, write_item
     root = make_repo()
-    write_item(root, "Flux", "pl_sans_regle", "DataPipeline", {"pipeline-content.json": pipeline([])})
+    write_item(root / FABRIC_DIR, "Flux", "pl_sans_regle", "DataPipeline", {"pipeline-content.json": pipeline([])})
     ctx = load_repo(root, "ITG")
     items = discover_items(ctx.items_root, ctx.folder_exclude_regex("ITG"))
     deployed = {"ws-itg": [{"id": "pl-9", "type": "DataPipeline", "displayName": "pl_get_ws_lh_ids"},

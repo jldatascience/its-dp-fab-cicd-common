@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import shutil
+
 import pytest
 import yaml
-from conftest import SANDBOX_WS, base_config, base_dependencies, invoke_activity, pipeline, write_item
+from conftest import FABRIC_DIR, SANDBOX_WS, base_config, base_dependencies, invoke_activity, pipeline, write_item
 
 from fabcicd.registry import Registry
 from fabcicd.static_checks import run_static_checks
@@ -113,7 +115,7 @@ def test_workspace_id_in_config_is_forbidden(make_repo):
 
 def test_secret_detection_masks_value(make_repo, capsys):
     fake_secret = "abc" + "8Q~" + "x" * 34  # forme d'un secret client Entra, valeur fictive
-    root = make_repo(extra={"Flux/nb_get_ws_lh_ids.Notebook/notebook-content.py": f"s = '{fake_secret}'\n"})
+    root = make_repo(extra={f"{FABRIC_DIR}/Flux/nb_get_ws_lh_ids.Notebook/notebook-content.py": f"s = '{fake_secret}'\n"})
     result = run_static_checks(root)
     assert "SECRET_ENTRA_CLIENT_SECRET" in codes(result)
     assert fake_secret not in capsys.readouterr().out
@@ -126,7 +128,7 @@ def test_legacy_deploy_script_with_ids_fails(make_repo):
 
 def test_type_present_but_out_of_scope_fails(make_repo):
     root = make_repo()
-    write_item(root, "", "sm_observability", "SemanticModel", {"definition.pbism": "{}"})
+    write_item(root / FABRIC_DIR, "", "sm_observability", "SemanticModel", {"definition.pbism": "{}"})
     assert "TYPES_SILENTLY_EXCLUDED" in codes(run_static_checks(root))
 
 
@@ -134,7 +136,7 @@ def test_type_intentionally_excluded_is_accepted(make_repo):
     deps = base_dependencies()
     deps["intentionally_excluded_item_types"] = ["SemanticModel"]
     root = make_repo(dependencies=deps)
-    write_item(root, "", "sm_observability", "SemanticModel", {"definition.pbism": "{}"})
+    write_item(root / FABRIC_DIR, "", "sm_observability", "SemanticModel", {"definition.pbism": "{}"})
     assert "TYPES_SILENTLY_EXCLUDED" not in codes(run_static_checks(root))
 
 
@@ -148,7 +150,7 @@ def test_nested_activity_requires_recursive_path(make_repo):
         "replace_value": {"_ALL_": "$workspace.$id"}, "item_type": "DataPipeline", "item_name": "pl_nested",
     }
     root = make_repo(parameter={"key_value_replace": [flat_rule]})
-    write_item(root, "Flux", "pl_nested", "DataPipeline", {"pipeline-content.json": nested})
+    write_item(root / FABRIC_DIR, "Flux", "pl_nested", "DataPipeline", {"pipeline-content.json": nested})
     assert "RULE_NO_EFFECT" in codes(run_static_checks(root))
 
 
@@ -166,7 +168,7 @@ def test_nested_activity_with_recursive_path_passes(make_repo, tmp_path):
     ]
     root = tmp_path / "repo"
     (root / "CICD" / "deployment" / "parameter.yml").write_text(yaml.safe_dump({"key_value_replace": rules}))
-    write_item(root, "Flux", "pl_nested", "DataPipeline", {"pipeline-content.json": nested})
+    write_item(root / FABRIC_DIR, "Flux", "pl_nested", "DataPipeline", {"pipeline-content.json": nested})
     result = run_static_checks(root)
     assert result.findings.ok, [f.message for f in result.findings.errors]
 
@@ -174,7 +176,7 @@ def test_nested_activity_with_recursive_path_passes(make_repo, tmp_path):
 def test_registry_flags_hardcoded_environment_workspace(make_repo, tmp_path):
     itg_ws = "bb764b8b-4e99-4c69-8026-e1cf252c192a"
     root = make_repo()
-    write_item(root, "", "pl_hard", "DataPipeline",
+    write_item(root / FABRIC_DIR, "", "pl_hard", "DataPipeline",
                {"pipeline-content.json": pipeline([invoke_activity("call", "22222222-0000-4000-8000-000000000004", itg_ws)])})
     registry_file = tmp_path / "reg.yml"
     registry_file.write_text(yaml.safe_dump({"guids": [{"value": itg_ws, "label": "ws MDS ITG", "category": "workspace"}]}))
@@ -186,7 +188,7 @@ def test_registry_flags_hardcoded_environment_workspace(make_repo, tmp_path):
 
 def test_unknown_guid_is_only_a_warning_while_inventory_pending(make_repo, tmp_path):
     root = make_repo(dependencies=base_dependencies(status="pending"))
-    write_item(root, "", "pl_hard", "DataPipeline",
+    write_item(root / FABRIC_DIR, "", "pl_hard", "DataPipeline",
                {"pipeline-content.json": pipeline([invoke_activity("call", "22222222-0000-4000-8000-000000000004", SANDBOX_WS)])})
     result = run_static_checks(root)
     assert "GUID_UNKNOWN" not in codes(result)
@@ -208,7 +210,7 @@ def _add_find_replace(root, rule):
 
 def test_find_replace_covers_guid_in_notebook(make_repo):
     nb = f"# Fabric notebook source\nws = '{SANDBOX_WS}'\n"
-    root = make_repo(extra={"Flux/nb_get_ws_lh_ids.Notebook/notebook-content.py": nb})
+    root = make_repo(extra={f"{FABRIC_DIR}/Flux/nb_get_ws_lh_ids.Notebook/notebook-content.py": nb})
     assert "GUID_HARDCODED" in codes(run_static_checks(root))
     _add_find_replace(root, {"find_value": SANDBOX_WS, "replace_value": {"_ALL_": "$workspace.$id"}, "item_type": "Notebook"})
     result = run_static_checks(root)
@@ -222,7 +224,7 @@ def test_find_replace_without_effect_fails(make_repo):
 
 
 def test_notebook_syntax_error_fails(make_repo):
-    root = make_repo(extra={"Flux/nb_get_ws_lh_ids.Notebook/notebook-content.py": "%pip install x\ndef f(:\n"})
+    root = make_repo(extra={f"{FABRIC_DIR}/Flux/nb_get_ws_lh_ids.Notebook/notebook-content.py": "%pip install x\ndef f(:\n"})
     assert "NOTEBOOK_SYNTAX" in codes(run_static_checks(root))
 
 
@@ -233,11 +235,9 @@ def test_missing_dependencies_file_fails(make_repo):
 
 
 def test_no_publishable_items_fails(make_repo):
-    config = base_config()
-    config["core"]["repository_directory"] = "../../fabric"
     root = make_repo()
-    (root / "fabric").mkdir()
-    (root / "CICD" / "deployment" / "config.yml").write_text(yaml.safe_dump(config, allow_unicode=True))
+    shutil.rmtree(root / FABRIC_DIR)
+    (root / FABRIC_DIR).mkdir()
     assert "STRUCT_NO_ITEMS" in codes(run_static_checks(root))
 
 

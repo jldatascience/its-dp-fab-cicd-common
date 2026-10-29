@@ -3,6 +3,9 @@
 Les items synthétiques reproduisent la structure Git Integration de Fabric
 (dossier ``<nom>.<Type>`` + ``.platform`` + fichier de définition) et les
 références observées dans le MODOP (GUID sandbox 42463408-…).
+
+Le dépôt synthétique suit la structure des dépôts consommateurs (ADP MDS,
+Framework) : ``CICD/deployment/config.yml`` d'un côté, items sous ``fabric/``.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ sys.path.insert(0, str(TOOLS))
 
 SANDBOX_WS = "42463408-0000-4000-8000-000000000001"
 ENVS = ("DEV", "ITG", "PPR", "PRD")
+FABRIC_DIR = "fabric"  # dossier des items Fabric, à la racine du dépôt
 
 
 def write_item(root: Path, folder: str, name: str, item_type: str, files: dict) -> Path:
@@ -57,8 +61,8 @@ def base_config(workspace_prefix: str = "FR - DP - {env} - FAB - Framework - MAN
     config = {
         "core": {
             "workspace": {env: workspace_prefix.format(env=env) for env in ENVS},
-            # Relatif à CICD/deployment/config.yml : les items du dépôt de test sont à sa racine.
-            "repository_directory": "../..",
+            # Relatif à CICD/deployment/config.yml, identique aux dépôts ADP MDS et Framework.
+            "repository_directory": f"../../{FABRIC_DIR}",
             "item_types_in_scope": ["DataPipeline", "Notebook"],
             "parameter": "parameter.yml",
         },
@@ -90,12 +94,13 @@ def make_repo(tmp_path):
     def _make(config=None, parameter=None, dependencies=None, extra=None) -> Path:
         root = tmp_path / "repo"
         root.mkdir()
+        items = root / FABRIC_DIR
         nb_id = "6eda81c3-0000-4000-8000-000000000002"
-        write_item(root, "Flux", "nb_get_ws_lh_ids", "Notebook", {"notebook-content.py": "# Fabric notebook source\nprint('ok')\n"})
-        write_item(root, "Flux", "pl_get_ws_lh_ids", "DataPipeline",
+        write_item(items, "Flux", "nb_get_ws_lh_ids", "Notebook", {"notebook-content.py": "# Fabric notebook source\nprint('ok')\n"})
+        write_item(items, "Flux", "pl_get_ws_lh_ids", "DataPipeline",
                    {"pipeline-content.json": pipeline([notebook_activity("nb_get_ws_lh_ids", nb_id, SANDBOX_WS)])})
         # Dossier exclu : contient un GUID sandbox qui ne doit PAS être signalé.
-        write_item(root, "Flux/old", "pl_old_v1", "DataPipeline",
+        write_item(items, "Flux/old", "pl_old_v1", "DataPipeline",
                    {"pipeline-content.json": pipeline([notebook_activity("x", nb_id, SANDBOX_WS)])})
         deployment = root / "CICD" / "deployment"
         deployment.mkdir(parents=True)
