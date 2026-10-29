@@ -131,6 +131,11 @@ dépôts restent sur leur tag actuel.
 Toute évolution : PR sur `main` → CI verte → tag `v1.x.y` → PR de montée de version dans les
 dépôts consommateurs (pilote d'abord). Un tag publié n'est jamais déplacé.
 
+Chaque dépôt, socle comme consommateur, tient un `CHANGELOG.md` à sa racine, au format
+[Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) : le socle y numérote ses versions
+(`## [1.5.0] - AAAA-MM-JJ`, une par tag), les consommateurs, qui ne sont pas versionnés par tag,
+y datent leurs entrées (`## AAAA-MM-JJ`).
+
 ## ID en clair dans parameter.yml (depuis v1.3.1)
 
 Par défaut, un GUID littéral dans `replace_value` est bloquant (`RULE_LITERAL_GUID`). Un dépôt qui

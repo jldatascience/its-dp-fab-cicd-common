@@ -18,6 +18,9 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
 
 - Test `tests/test_version.py` : `fabcicd.__version__` doit être égal à la dernière version
   numérotée de ce fichier.
+- README, section « Versionnement » : convention `CHANGELOG.md` dans chaque dépôt (versions
+  numérotées pour le socle, entrées datées pour les consommateurs, dont l'ancien `CHANGES.md`
+  est renommé).
 
 ## [1.5.0] - 2026-10-29
 
