@@ -8,6 +8,8 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-29
+
 ### Fixed
 
 - Paquet `fabcicd` : fichier d'initialisation renommé `___init___.py` → `__init__.py`.
@@ -17,6 +19,9 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
   `fabcicd/findings.py`, remplacés par `from . import …`.
 - Tests : imports `from CICD.tests.conftest import …` remplacés par `from conftest import …`
   (`pythonpath = tools tests` de `pytest.ini`) ; la collecte des tests échouait.
+- Fixture des tests (`make_repo`) alignée sur la structure des dépôts consommateurs : items
+  générés sous `fabric/` (constante `FABRIC_DIR`), `repository_directory` par défaut
+  `../../fabric`.
 - Templates Azure DevOps alignés sur l'arborescence réelle du socle : `tools/` →
   `CICD/tools/` (`deploy.py`, `requirements.txt`).
 - Contrôles du dépôt consommateur alignés sur son arborescence réelle : `deployment/` →
