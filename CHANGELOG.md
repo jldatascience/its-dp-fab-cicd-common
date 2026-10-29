@@ -14,6 +14,22 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
   `deploy.py` par la variable `CICD_ROOT` (défaut `CICD`), dont `fabcicd/settings.py` dérive
   `DEPLOYMENT_DIR` ; `deploy.py` s'arrête (code 4) avec un message explicite si
   `<repo>/<CICD_ROOT>/deployment` est introuvable.
+- Templates : `cicdRoot` ne désigne plus que le dossier CI/CD **du dépôt consommateur**
+  (`deployment/`, `pipelines/`, variable `CICD_ROOT`). Le dossier CI/CD **du socle** (`tools/`,
+  `requirements.txt`) devient le paramètre distinct `commonCicdRoot` (défaut `CICD`, relatif au
+  checkout `s/cicd_common`), propagé à `stage-deploy.yml` et `steps-python.yml` (dont le
+  paramètre interne `cicdRoot` est renommé `commonCicdRoot`). Valeurs par défaut : chemins
+  identiques à la v1.4.1.
+- **Changement de comportement** – `validate` (et `scan`, `deploy`, `verify`) sur un dépôt sans
+  `<CICD_ROOT>/deployment` sort avec le code 4 (erreur de configuration) au lieu du code 1
+  (`STRUCT_MISSING_FILE`).
+- **Changement de comportement** – `repository_directory` absent ou sans item Fabric (aucun
+  `.platform`) : arrêt avec le code 4 et le chemin résolu, avant les contrôles statiques, au lieu
+  du code 1 (`STRUCT_ITEMS` / `STRUCT_NO_ITEMS`). `STRUCT_NO_ITEMS` reste levé (code 1) quand tous
+  les items sont exclus par `folder_exclude_regex`.
+- README : `repository_directory` explicite obligatoire dès que `cicdRoot` n'est pas un dossier à
+  un seul niveau (exemple `cicdRoot: a/b` → `../../../fabric`) ; `CICD_ROOT` lue au chargement du
+  module, donc posée avant le lancement du processus ; codes de sortie mis à jour.
 
 ## [1.4.1] - 2026-10-29
 

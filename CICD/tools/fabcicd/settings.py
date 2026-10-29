@@ -29,8 +29,12 @@ from . import ENVIRONMENTS
 
 PLACEHOLDER_MARK = "__A_RELEVER__"
 
-# Dossier CI/CD des dépôts : paramètre de template ``cicdRoot``, transmis par la variable
-# d'environnement CICD_ROOT (absente ou vide : ``CICD``). Lu une fois, à l'import.
+# Dossier CI/CD du dépôt consommateur : paramètre de template ``cicdRoot``, transmis par la
+# variable d'environnement CICD_ROOT (absente ou vide : ``CICD``). Le dossier du socle
+# (``commonCicdRoot``) n'est pas lu ici : ``tools/`` et ``registry/`` sont trouvés via ``__file__``.
+# CICD_ROOT est lue une seule fois, au chargement du module : elle doit être posée avant le
+# lancement du processus (``env:`` de chaque étape deploy.py dans les templates) ; la modifier
+# ensuite dans ``os.environ`` n'a aucun effet.
 CICD_ROOT_DEFAULT = "CICD"
 CICD_ROOT = os.environ.get("CICD_ROOT", "").strip() or CICD_ROOT_DEFAULT
 
@@ -208,6 +212,26 @@ def deployment_dir_error(root: Path) -> Optional[str]:
 def _resolve_relative(base: Path, value: str) -> Path:
     path = Path(value)
     return path if path.is_absolute() else (base / path).resolve()
+
+
+def repository_directory_error(root: Path, env: str = "ITG") -> Optional[str]:
+    """Message d'erreur si ``repository_directory`` (résolu pour ``env``) est absent ou sans item Fabric.
+
+    ``None`` si le dossier contient au moins un item (fichier ``.platform``) ou si ``config.yml``
+    est illisible : ce dernier cas est signalé par les contrôles statiques.
+    """
+    try:
+        ctx = load_repo(root, env)
+    except SettingsError:
+        return None
+    value = env_value(ctx.config.get("core", {}).get("repository_directory"), env)
+    origin = f"repository_directory={value!r}" if value else "repository_directory absent, défaut '../../fabric'"
+    hint = f"({origin}, relatif à {ctx.config_path.parent}) – vérifier repository_directory dans {ctx.config_path.name}"
+    if not ctx.items_root.is_dir():
+        return f"Dossier des items Fabric introuvable : {ctx.items_root} {hint}"
+    if next(ctx.items_root.rglob(".platform"), None) is None:
+        return f"Aucun item Fabric (fichier .platform) sous {ctx.items_root} {hint}"
+    return None
 
 
 def load_repo(root: Path, env_for_paths: str = "ITG") -> RepoContext:

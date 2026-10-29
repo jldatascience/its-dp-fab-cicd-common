@@ -12,9 +12,16 @@ parameters:
     type: string
     default: "3.12"
   - name: cicdRoot
-    # Dossier CICD/ des dépôts (socle : tools/, consommateurs : pipelines/ et deployment/).
+    # Dossier CI/CD du dépôt consommateur (deployment/, pipelines/), relatif à sa racine.
     # Transmis à deploy.py par la variable d'environnement CICD_ROOT (DEPLOYMENT_DIR = <cicdRoot>/deployment).
-    displayName: "Dossier CICD des dépôts (socle et consommateur)"
+    # Hors dossier à un seul niveau (ex. a/b) : repository_directory explicite dans config.yml.
+    displayName: "Dossier CI/CD du dépôt consommateur (contient deployment/)"
+    type: string
+    default: CICD
+  - name: commonCicdRoot
+    # Dossier CI/CD du socle (tools/, pipelines/), relatif à son checkout $(Pipeline.Workspace)/s/cicd_common.
+    # Indépendant de cicdRoot : changer le dossier du consommateur ne casse pas le chemin vers le socle.
+    displayName: "Dossier CI/CD du socle commun (contient tools/), relatif à s/cicd_common"
     type: string
     default: CICD
   - name: pool
@@ -42,7 +49,7 @@ stages:
           - template: steps-python.yml
             parameters:
               pythonVersion: ${{ parameters.pythonVersion }}
-              cicdRoot: ${{ parameters.cicdRoot }}
+              commonCicdRoot: ${{ parameters.commonCicdRoot }}
 
           - script: |
               set -euo pipefail
@@ -55,7 +62,7 @@ stages:
 
           - script: |
               set -euo pipefail
-              python "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools/deploy.py" validate \
+              python "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.commonCicdRoot }}/tools/deploy.py" validate \
                 --repo "$(Pipeline.Workspace)/s/repo" \
                 --inventory-csv "$(Build.ArtifactStagingDirectory)/guid-inventory.csv"
             displayName: "Structure, JSON, config.yml, parameter.yml, GUID, secrets"

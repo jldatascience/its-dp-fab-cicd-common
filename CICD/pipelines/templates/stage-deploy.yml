@@ -60,6 +60,11 @@ parameters:
   - name: pythonVersion
     type: string
   - name: cicdRoot
+    # Dossier CI/CD du dépôt consommateur (contient deployment/) : variable CICD_ROOT de deploy.py.
+    type: string
+    default: CICD
+  - name: commonCicdRoot
+    # Dossier CI/CD du socle (contient tools/), relatif à $(Pipeline.Workspace)/s/cicd_common.
     type: string
     default: CICD
 
@@ -74,7 +79,7 @@ stages:
       - name: ARTIFACT_DIR
         value: "$(Pipeline.Workspace)/${{ parameters.ciAlias }}/${{ parameters.artifactName }}/${{ parameters.artifactSubPath }}"
       - name: TOOLS
-        value: "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.cicdRoot }}/tools"
+        value: "$(Pipeline.Workspace)/s/cicd_common/${{ parameters.commonCicdRoot }}/tools"
       - name: REPORT_DIR
         value: "$(Build.ArtifactStagingDirectory)/reports"
       - name: FRAMEWORK_GATE
@@ -126,7 +131,7 @@ stages:
                 - template: steps-python.yml
                   parameters:
                     pythonVersion: ${{ parameters.pythonVersion }}
-                    cicdRoot: ${{ parameters.cicdRoot }}
+                    commonCicdRoot: ${{ parameters.commonCicdRoot }}
 
                 - script: >-
                     python "$(TOOLS)/deploy.py" check-branch --branch "$CI_SOURCE_BRANCH"

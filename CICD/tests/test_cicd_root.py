@@ -1,20 +1,25 @@
-"""Dossier CI/CD (paramètre de template ``cicdRoot``) transmis au code Python par ``CICD_ROOT``.
+"""Dossiers CI/CD : ``cicdRoot`` (consommateur, transmis au Python par ``CICD_ROOT``) et
+``commonCicdRoot`` (socle, chemin de ``tools/`` dans les templates uniquement).
 
 ``DEPLOYMENT_DIR`` est calculé à l'import de ``fabcicd.settings`` : les tests rechargent le
 module après avoir positionné la variable, puis restaurent son état d'origine (les autres
-modules gardent ainsi les mêmes objets ``SettingsError``, ``RepoContext``…).
+modules gardent ainsi les mêmes objets ``SettingsError``, ``RepoContext``…). ``static_checks``
+importe ``DEPLOYMENT_DIR`` par valeur : la fixture lui propage la valeur rechargée.
 """
 
 from __future__ import annotations
 
 import importlib
+import re
+import shutil
 from pathlib import Path
 
 import pytest
 import yaml
 
 import deploy as cli
-from fabcicd import settings
+from conftest import FABRIC_DIR, base_config
+from fabcicd import settings, static_checks
 
 TEMPLATES = Path(__file__).resolve().parents[1] / "pipelines" / "templates"
 
@@ -29,7 +34,9 @@ def reload_settings(monkeypatch):
             monkeypatch.delenv("CICD_ROOT", raising=False)
         else:
             monkeypatch.setenv("CICD_ROOT", value)
-        return importlib.reload(settings)
+        module = importlib.reload(settings)
+        monkeypatch.setattr(static_checks, "DEPLOYMENT_DIR", module.DEPLOYMENT_DIR)
+        return module
 
     yield _reload
     settings.__dict__.clear()
@@ -95,4 +102,128 @@ def test_every_deploy_step_receives_cicd_root(name, expected):
     assert len(steps) == expected
     for step in steps:
         assert (step.get("env") or {}).get("CICD_ROOT") == "${{ parameters.cicdRoot }}", step.get("displayName")
+        assert "COMMON_CICD_ROOT" not in (step.get("env") or {})  # le Python ne lit pas le dossier du socle
     assert "Doit rester égal à DEPLOYMENT_DIR" not in text
+
+
+# ---------------------------------------------------------------- cicdRoot / commonCicdRoot
+TEMPLATE_NAMES = ("cd-pipeline.yml", "stage-deploy.yml", "steps-python.yml", "validate-pipeline.yml")
+# Chemins du socle avant la séparation des paramètres (cicdRoot = CICD) : inchangés par défaut.
+LEGACY_TOOLS = "$(Pipeline.Workspace)/s/cicd_common/CICD/tools"
+
+
+def _params(name):
+    return {p["name"]: p for p in yaml.safe_load((TEMPLATES / name).read_text(encoding="utf-8"))["parameters"]}
+
+
+def _render(name, **values):
+    """Texte du template, paramètres remplacés (valeur donnée, sinon défaut du template)."""
+    text = (TEMPLATES / name).read_text(encoding="utf-8")
+    for param, spec in _params(name).items():
+        if isinstance(spec.get("default"), str):
+            text = text.replace(f"${{{{ parameters.{param} }}}}", values.get(param, spec["default"]))
+    return text
+
+
+@pytest.mark.parametrize("name", TEMPLATE_NAMES)
+def test_cicd_root_parameters_default_to_cicd(name):
+    params = _params(name)
+    assert params["commonCicdRoot"]["default"] == "CICD"
+    if name != "steps-python.yml":  # steps-python n'installe que les dépendances du socle
+        assert params["cicdRoot"]["default"] == "CICD"
+    else:
+        assert "cicdRoot" not in params
+
+
+@pytest.mark.parametrize("name", TEMPLATE_NAMES)
+def test_no_template_reaches_tools_through_cicd_root(name):
+    text = (TEMPLATES / name).read_text(encoding="utf-8")
+    assert not re.search(r"parameters\.cicdRoot \}\}/(tools|registry|pipelines/templates)", text)
+    assert "/tools" not in text or "${{ parameters.commonCicdRoot }}/tools" in text
+
+
+@pytest.mark.parametrize("name", ["cd-pipeline.yml", "stage-deploy.yml", "validate-pipeline.yml"])
+def test_defaults_keep_previous_paths(name):
+    text = _render(name)
+    tools = re.findall(r"\S*/tools\b", text)
+    assert tools and all(LEGACY_TOOLS in path for path in tools)
+    assert "CICD_ROOT: CICD" in text
+
+
+def test_steps_python_default_keeps_previous_requirements_path():
+    assert f'-r "{LEGACY_TOOLS}/requirements.txt"' in _render("steps-python.yml")
+
+
+def test_both_parameters_propagate_to_nested_templates():
+    cd = (TEMPLATES / "cd-pipeline.yml").read_text(encoding="utf-8")
+    assert cd.count("template: stage-deploy.yml") == 4
+    assert cd.count("          cicdRoot: ${{ parameters.cicdRoot }}\n          commonCicdRoot: ${{ parameters.commonCicdRoot }}") == 4
+    for name in ("cd-pipeline.yml", "stage-deploy.yml", "validate-pipeline.yml"):
+        text = (TEMPLATES / name).read_text(encoding="utf-8")
+        block = text[text.index("template: steps-python.yml"):]
+        assert "commonCicdRoot: ${{ parameters.commonCicdRoot }}" in block.split("- script")[0], name
+
+
+@pytest.mark.parametrize("name", ["cd-pipeline.yml", "stage-deploy.yml", "validate-pipeline.yml"])
+def test_custom_consumer_cicd_root_leaves_common_paths_unchanged(name):
+    text = _render(name, cicdRoot="a/b")
+    assert all(LEGACY_TOOLS in path for path in re.findall(r"\S*/tools\b", text))
+    assert "CICD_ROOT: a/b" in text and "CICD_ROOT: CICD" not in text
+    if name == "validate-pipeline.yml":
+        assert '"a/b/deployment" "a/b/pipelines"' in text
+
+
+def _move_cicd(root, target="a/b"):
+    (root / target).parent.mkdir(parents=True, exist_ok=True)
+    (root / "CICD").rename(root / target)
+    return root / target / "deployment" / "config.yml"
+
+
+def test_custom_cicd_root_with_explicit_repository_directory_passes(make_repo, reload_settings):
+    config = base_config()
+    config["core"]["repository_directory"] = f"../../../{FABRIC_DIR}"  # a/b/deployment → racine
+    root = make_repo(config=config)
+    _move_cicd(root)
+    reload_settings("a/b")
+    assert cli.main(["validate", "--repo", str(root)]) == cli.EXIT_OK
+
+
+def test_custom_cicd_root_with_implicit_repository_directory_stops(make_repo, reload_settings, capsys):
+    root = make_repo()  # repository_directory ../../fabric : faux depuis a/b/deployment
+    _move_cicd(root)
+    reload_settings("a/b")
+    assert cli.main(["validate", "--repo", str(root)]) == cli.EXIT_USAGE
+    out = capsys.readouterr().out
+    assert f"Dossier des items Fabric introuvable : {(root / 'a' / FABRIC_DIR).resolve()}" in out
+    assert "repository_directory='../../fabric'" in out
+
+
+# ---------------------------------------------------------------- repository_directory
+@pytest.mark.parametrize("command", [["validate"], ["scan", "--out", "inv.csv"], ["deploy", "--env", "ITG"], ["verify", "--env", "PRD"]])
+def test_cli_stops_when_repository_directory_missing(make_repo, reload_settings, capsys, command):
+    reload_settings(None)
+    root = make_repo()
+    shutil.rmtree(root / FABRIC_DIR)
+    assert cli.main([command[0], "--repo", str(root), *command[1:]]) == cli.EXIT_USAGE
+    out = capsys.readouterr().out
+    assert f"Dossier des items Fabric introuvable : {(root / FABRIC_DIR).resolve()}" in out
+    assert "vérifier repository_directory dans config.yml" in out
+
+
+def test_cli_stops_when_repository_directory_has_no_fabric_item(make_repo, reload_settings, capsys):
+    reload_settings(None)
+    root = make_repo()
+    shutil.rmtree(root / FABRIC_DIR)
+    (root / FABRIC_DIR).mkdir()
+    (root / FABRIC_DIR / "test.md").write_text("placeholder", encoding="utf-8")
+    assert cli.main(["validate", "--repo", str(root)]) == cli.EXIT_USAGE
+    assert f"Aucun item Fabric (fichier .platform) sous {(root / FABRIC_DIR).resolve()}" in capsys.readouterr().out
+
+
+def test_repository_directory_is_resolved_for_the_deploy_environment(make_repo, reload_settings, capsys):
+    reload_settings(None)
+    config = base_config()
+    config["core"]["repository_directory"] = {"_ALL_": f"../../{FABRIC_DIR}", "PRD": "../../absent"}
+    root = make_repo(config=config)
+    assert cli.main(["verify", "--repo", str(root), "--env", "PRD"]) == cli.EXIT_USAGE
+    assert f"introuvable : {(root / 'absent').resolve()}" in capsys.readouterr().out

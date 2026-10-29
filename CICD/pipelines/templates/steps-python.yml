@@ -8,7 +8,8 @@ parameters:
   - name: commonPath
     type: string
     default: "$(Pipeline.Workspace)/s/cicd_common"
-  - name: cicdRoot
+  - name: commonCicdRoot
+    # Dossier CI/CD du socle (contient tools/), relatif à commonPath.
     type: string
     default: CICD
 
@@ -21,7 +22,7 @@ steps:
 
   - script: |
       set -euo pipefail
-      python -m pip install --disable-pip-version-check --no-input -r "${{ parameters.commonPath }}/${{ parameters.cicdRoot }}/tools/requirements.txt"
+      python -m pip install --disable-pip-version-check --no-input -r "${{ parameters.commonPath }}/${{ parameters.commonCicdRoot }}/tools/requirements.txt"
       python -c "import sys; from importlib.metadata import version; print('fabric-cicd', version('fabric-cicd'), '| python', sys.version.split()[0])"
       python -m pip check
     displayName: "Dépendances Python épinglées (socle commun)"

@@ -47,14 +47,41 @@ Les templates et `deploy.py` lisent, à partir de la racine du dépôt (ou de l'
 (`CICD/deployment/`), par fabric-cicd 1.4.0 comme par `fabcicd`, et non depuis le dossier
 d'exécution du pipeline.
 
-Les templates reçoivent ce dossier par le paramètre `cicdRoot` (défaut `CICD`), utilisé à la fois
-pour le socle (`<cicdRoot>/tools`) et pour le dépôt consommateur (`<cicdRoot>/deployment`,
-`<cicdRoot>/pipelines`). C'est la seule source de vérité : chaque étape qui exécute `deploy.py`
-le transmet par la variable d'environnement `CICD_ROOT` (`env: CICD_ROOT: ${{ parameters.cicdRoot }}`),
-dont `fabcicd/settings.py` dérive `DEPLOYMENT_DIR = <CICD_ROOT>/deployment`, relatif à la racine
-passée en `--repo`. Variable absente ou vide (exécution locale, tests) : `CICD`, soit
-`CICD/deployment`. Si ce dossier n'existe pas sous `--repo`, `validate`, `scan`, `deploy` et
-`verify` s'arrêtent (code 4) avec le chemin cherché et la valeur de `CICD_ROOT`.
+Les templates distinguent deux dossiers CI/CD, par deux paramètres indépendants :
+
+| Paramètre | Désigne | Défaut | Usages |
+|---|---|---|---|
+| `cicdRoot` | dossier CI/CD **du dépôt consommateur**, relatif à sa racine | `CICD` | `<cicdRoot>/deployment` (`deploy.py`, yamllint), `<cicdRoot>/pipelines` (yamllint) |
+| `commonCicdRoot` | dossier CI/CD **du socle**, relatif à son checkout `$(Pipeline.Workspace)/s/cicd_common` | `CICD` | `<commonCicdRoot>/tools/deploy.py`, `<commonCicdRoot>/tools/requirements.txt` |
+
+Un consommateur peut donc changer `cicdRoot` sans toucher au chemin du socle. Les consommateurs
+actuels ne passent aucun des deux paramètres : les chemins sont identiques à ceux de la v1.4.1.
+
+`cicdRoot` est la seule source de vérité du dossier consommateur : chaque étape qui exécute
+`deploy.py` le transmet par la variable d'environnement `CICD_ROOT`
+(`env: CICD_ROOT: ${{ parameters.cicdRoot }}`), dont `fabcicd/settings.py` dérive
+`DEPLOYMENT_DIR = <CICD_ROOT>/deployment`, relatif à la racine passée en `--repo`. Variable absente
+ou vide (exécution locale, tests) : `CICD`, soit `CICD/deployment`. `CICD_ROOT` est lue une seule
+fois, au chargement du module : elle doit donc être posée avant le lancement du processus, ce que
+font les templates (`env:` de l'étape). `commonCicdRoot` n'est pas transmis au Python : `deploy.py`
+trouve `fabcicd/` et `registry/known_guids.yml` à partir de son propre emplacement.
+
+Si `<--repo>/<CICD_ROOT>/deployment` n'existe pas, `validate`, `scan`, `deploy` et `verify`
+s'arrêtent (code 4) avec le chemin cherché et la valeur de `CICD_ROOT`. Même arrêt (code 4) si le
+dossier pointé par `repository_directory` (résolu pour `--env`, ITG pour `validate` et `scan`)
+n'existe pas ou ne contient aucun item Fabric (fichier `.platform`) : le message donne le chemin
+résolu et la valeur lue dans `config.yml`.
+
+**`repository_directory` doit être explicite** dans `config.yml` dès que `cicdRoot` n'est pas un
+dossier à un seul niveau sous la racine : le défaut `../../fabric` suppose
+`<racine>/<cicdRoot>/deployment/config.yml`. Exemple pour `cicdRoot: a/b` (config dans
+`a/b/deployment/`) :
+
+```yaml
+core:
+  repository_directory: "../../../fabric"   # a/b/deployment → racine du dépôt → fabric/
+```
+
 Les dépôts l'étendent ainsi :
 
 ```yaml
@@ -147,4 +174,4 @@ environnements. Les ID des items Fabric ne passent jamais par Key Vault ni par `
 | 1 | contrôle bloquant en échec (statique, pré-vol, porte Framework, vérification) |
 | 2 | échec de publication fabric-cicd |
 | 3 | refus de politique (inventaire `pending`, branche non autorisée) |
-| 4 | erreur d'usage ou d'authentification |
+| 4 | erreur d'usage, d'authentification ou de configuration (`<CICD_ROOT>/deployment` absent, `repository_directory` absent ou sans item Fabric) |

@@ -20,7 +20,9 @@ lookup    Retrouve le nom exact de workspaces à partir de leurs IDs (lecture se
 Codes de sortie
 ---------------
 0 succès · 1 contrôle bloquant en échec · 2 échec de publication · 3 refus de politique
-(inventaire non validé, valeur à relever) · 4 erreur d'usage ou d'authentification.
+(inventaire non validé, valeur à relever) · 4 erreur d'usage, d'authentification ou de
+configuration (``<CICD_ROOT>/deployment`` absent, ``repository_directory`` absent ou sans item
+Fabric).
 
 fabric-cicd n'offre pas de mode « dry-run ». ``--mode validate`` exécute tout ce
 qui est possible sans écrire : contrôles statiques, authentification, pré-vol et
@@ -43,7 +45,7 @@ from fabcicd.findings import Findings  # noqa: E402
 from fabcicd.items import discover_items  # noqa: E402
 from fabcicd.registry import Registry, default_registry_path  # noqa: E402
 from fabcicd.report import Report  # noqa: E402
-from fabcicd.settings import SettingsError, deployment_dir_error, load_repo  # noqa: E402
+from fabcicd.settings import SettingsError, deployment_dir_error, load_repo, repository_directory_error  # noqa: E402
 from fabcicd.static_checks import run_static_checks  # noqa: E402
 
 EXIT_OK, EXIT_CHECKS, EXIT_DEPLOY, EXIT_POLICY, EXIT_USAGE = 0, 1, 2, 3, 4
@@ -425,9 +427,11 @@ def main(argv=None) -> int:
 
     # Aiguillage : chaque commande analysée appelle sa fonction cmd_* dédiée.
     args = parser.parse_args(argv)
-    # Garde-fou : les commandes qui lisent un dépôt (--repo) exigent <repo>/DEPLOYMENT_DIR.
+    # Garde-fou : les commandes qui lisent un dépôt (--repo) exigent <repo>/DEPLOYMENT_DIR et un
+    # repository_directory qui contient des items Fabric (résolu pour --env, ITG par défaut).
     if getattr(args, "repo", None) is not None:
-        error = deployment_dir_error(Path(args.repo))
+        env = (getattr(args, "env", None) or "ITG").upper()
+        error = deployment_dir_error(Path(args.repo)) or repository_directory_error(Path(args.repo), env)
         if error:
             log.error("config", error)
             return EXIT_USAGE
