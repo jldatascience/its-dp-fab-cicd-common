@@ -8,6 +8,8 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-29
+
 ### Changed
 
 - `cicdRoot` devient la seule source de vérité du dossier CI/CD : les templates le transmettent à
@@ -17,16 +19,21 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
 - Templates : `cicdRoot` ne désigne plus que le dossier CI/CD **du dépôt consommateur**
   (`deployment/`, `pipelines/`, variable `CICD_ROOT`). Le dossier CI/CD **du socle** (`tools/`,
   `requirements.txt`) devient le paramètre distinct `commonCicdRoot` (défaut `CICD`, relatif au
-  checkout `s/cicd_common`), propagé à `stage-deploy.yml` et `steps-python.yml` (dont le
-  paramètre interne `cicdRoot` est renommé `commonCicdRoot`). Valeurs par défaut : chemins
-  identiques à la v1.4.1.
+  checkout `s/cicd_common`), propagé à `stage-deploy.yml` et `steps-python.yml`. Valeurs par
+  défaut : chemins identiques à la v1.4.1.
 - **Changement de comportement** – `validate` (et `scan`, `deploy`, `verify`) sur un dépôt sans
   `<CICD_ROOT>/deployment` sort avec le code 4 (erreur de configuration) au lieu du code 1
   (`STRUCT_MISSING_FILE`).
-- **Changement de comportement** – `repository_directory` absent ou sans item Fabric (aucun
-  `.platform`) : arrêt avec le code 4 et le chemin résolu, avant les contrôles statiques, au lieu
-  du code 1 (`STRUCT_ITEMS` / `STRUCT_NO_ITEMS`). `STRUCT_NO_ITEMS` reste levé (code 1) quand tous
-  les items sont exclus par `folder_exclude_regex`.
+- **Changement de comportement** – garde `repository_directory` : sur les quatre commandes qui
+  prennent `--repo` (`validate`, `scan`, `deploy`, `verify`), un `repository_directory` absent ou
+  sans item Fabric (aucun `.platform`) provoque un arrêt avec le code 4 et le chemin résolu, avant
+  les contrôles statiques, au lieu du code 1 (`STRUCT_ITEMS` / `STRUCT_NO_ITEMS`).
+- **Changement de comportement** – `STRUCT_NO_ITEMS` (code 1) n'est plus levé que lorsque des
+  items existent mais sont tous exclus par `folder_exclude_regex`.
+- **Changement de comportement** – `steps-python.yml` : paramètre `cicdRoot` renommé
+  `commonCicdRoot` (défaut `CICD`). Seuls les dépôts qui appelleraient `steps-python.yml`
+  directement doivent adapter leur appel ; ceux qui étendent `cd-pipeline.yml` ou
+  `validate-pipeline.yml` ne sont pas concernés.
 - README : `repository_directory` explicite obligatoire dès que `cicdRoot` n'est pas un dossier à
   un seul niveau (exemple `cicdRoot: a/b` → `../../../fabric`) ; `CICD_ROOT` lue au chargement du
   module, donc posée avant le lancement du processus ; codes de sortie mis à jour.

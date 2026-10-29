@@ -210,14 +210,27 @@ def test_cli_stops_when_repository_directory_missing(make_repo, reload_settings,
     assert "vérifier repository_directory dans config.yml" in out
 
 
-def test_cli_stops_when_repository_directory_has_no_fabric_item(make_repo, reload_settings, capsys):
+@pytest.mark.parametrize("command", [["validate"], ["scan", "--out", "inv.csv"], ["deploy", "--env", "ITG"], ["verify", "--env", "PRD"]])
+def test_cli_stops_when_repository_directory_has_no_fabric_item(make_repo, reload_settings, capsys, command):
     reload_settings(None)
     root = make_repo()
     shutil.rmtree(root / FABRIC_DIR)
     (root / FABRIC_DIR).mkdir()
     (root / FABRIC_DIR / "test.md").write_text("placeholder", encoding="utf-8")
-    assert cli.main(["validate", "--repo", str(root)]) == cli.EXIT_USAGE
+    assert cli.main([command[0], "--repo", str(root), *command[1:]]) == cli.EXIT_USAGE
     assert f"Aucun item Fabric (fichier .platform) sous {(root / FABRIC_DIR).resolve()}" in capsys.readouterr().out
+
+
+def test_all_items_excluded_raises_struct_no_items(make_repo, reload_settings, capsys):
+    # Items présents mais tous exclus par folder_exclude_regex : la garde laisse passer (code 4
+    # réservé au dossier absent ou vide), le contrôle statique STRUCT_NO_ITEMS bloque (code 1).
+    reload_settings(None)
+    root = make_repo(config=base_config(exclude="^/Flux"))
+    assert "STRUCT_NO_ITEMS" in {f.code for f in static_checks.run_static_checks(root).findings.errors}
+    assert cli.main(["validate", "--repo", str(root)]) == cli.EXIT_CHECKS
+    out = capsys.readouterr().out
+    assert "STRUCT_NO_ITEMS" in out
+    assert "Aucun item Fabric" not in out and "introuvable" not in out
 
 
 def test_repository_directory_is_resolved_for_the_deploy_environment(make_repo, reload_settings, capsys):

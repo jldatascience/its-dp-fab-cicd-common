@@ -6,7 +6,7 @@ de déploiement Python et ses tests. Les dépôts Fabric ne contiennent plus de 
 déploiement, seulement leur configuration (`CICD/deployment/*.yml`) et trois YAML minces
 (`CICD/pipelines/CI.yml`, `CD.yml`, `PR-Validation.yml`).
 
-Version courante : **v1.4.0** (détail des versions dans `CHANGELOG.md`).
+Version courante : **v1.5.0** (détail des versions dans `CHANGELOG.md`).
 
 ```
 its-dp-fab-cicd-common/
@@ -54,6 +54,11 @@ Les templates distinguent deux dossiers CI/CD, par deux paramètres indépendant
 | `cicdRoot` | dossier CI/CD **du dépôt consommateur**, relatif à sa racine | `CICD` | `<cicdRoot>/deployment` (`deploy.py`, yamllint), `<cicdRoot>/pipelines` (yamllint) |
 | `commonCicdRoot` | dossier CI/CD **du socle**, relatif à son checkout `$(Pipeline.Workspace)/s/cicd_common` | `CICD` | `<commonCicdRoot>/tools/deploy.py`, `<commonCicdRoot>/tools/requirements.txt` |
 
+`cicdRoot` et `commonCicdRoot` sont déclarés par `validate-pipeline.yml`, `cd-pipeline.yml` et
+`stage-deploy.yml`. `steps-python.yml` ne reçoit que `commonCicdRoot` (défaut `CICD`) : son ancien
+paramètre `cicdRoot` a été renommé, ce qui ne concerne qu'un dépôt qui appellerait ce template
+directement (les consommateurs passent par `cd-pipeline.yml` ou `validate-pipeline.yml`).
+
 Un consommateur peut donc changer `cicdRoot` sans toucher au chemin du socle. Les consommateurs
 actuels ne passent aucun des deux paramètres : les chemins sont identiques à ceux de la v1.4.1.
 
@@ -70,7 +75,10 @@ Si `<--repo>/<CICD_ROOT>/deployment` n'existe pas, `validate`, `scan`, `deploy` 
 s'arrêtent (code 4) avec le chemin cherché et la valeur de `CICD_ROOT`. Même arrêt (code 4) si le
 dossier pointé par `repository_directory` (résolu pour `--env`, ITG pour `validate` et `scan`)
 n'existe pas ou ne contient aucun item Fabric (fichier `.platform`) : le message donne le chemin
-résolu et la valeur lue dans `config.yml`.
+résolu et la valeur lue dans `config.yml`. Cette garde `repository_directory` s'applique aux quatre
+commandes qui prennent `--repo` (`validate`, `scan`, `deploy`, `verify`) et s'exécute avant tout
+contrôle statique. Le contrôle `STRUCT_NO_ITEMS` (code 1) ne se déclenche donc plus que lorsque des
+items existent mais sont **tous** exclus par `folder_exclude_regex`.
 
 **`repository_directory` doit être explicite** dans `config.yml` dès que `cicdRoot` n'est pas un
 dossier à un seul niveau sous la racine : le défaut `../../fabric` suppose
@@ -97,7 +105,7 @@ Depuis la racine du dépôt :
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -r CICD/tools/requirements-dev.txt
-(cd CICD && python -m pytest)                      # 114 tests, sans réseau (pytest.ini est dans CICD/)
+(cd CICD && python -m pytest)                      # 156 tests, sans réseau (pytest.ini est dans CICD/)
 yamllint -c .yamllint.yml CICD/pipelines CICD/registry
 python CICD/tools/deploy.py validate --repo ../its-dp-fab-adp-mds-managed
 python CICD/tools/deploy.py scan --repo ../its-dp-fab-bdp-compte-managed --out inventaire.csv
@@ -111,11 +119,13 @@ Les 11 dépôts référencent ce socle par **tag**, jamais par `main` depuis une
 
 | Tag | À utiliser par |
 |---|---|
-| `refs/tags/v1.4.0` | cible des 11 dépôts : service connections ARM par environnement (marqueurs clarifiés) |
+| `refs/tags/v1.5.0` | cible des 11 dépôts : paramètres `cicdRoot` / `commonCicdRoot`, garde `repository_directory` (code 4) |
+| `refs/tags/v1.4.1` | retour arrière : corrections de l'arborescence `CICD/` |
+| `refs/tags/v1.4.0` | retour arrière : service connections ARM par environnement (marqueurs clarifiés) |
 | `refs/tags/v1.3.1` | retour arrière : ID en clair admis |
 | `refs/tags/v1.3.0` | retour arrière : comportement d'origine |
 
-Un tag n'existe qu'une fois créé et poussé dans GitHub : tant que `v1.4.0` n'y figure pas, les
+Un tag n'existe qu'une fois créé et poussé dans GitHub : tant que `v1.5.0` n'y figure pas, les
 dépôts restent sur leur tag actuel.
 
 Toute évolution : PR sur `main` → CI verte → tag `v1.x.y` → PR de montée de version dans les
@@ -171,7 +181,7 @@ environnements. Les ID des items Fabric ne passent jamais par Key Vault ni par `
 | Code | Signification |
 |---|---|
 | 0 | succès |
-| 1 | contrôle bloquant en échec (statique, pré-vol, porte Framework, vérification) |
+| 1 | contrôle bloquant en échec (statique, pré-vol, porte Framework, vérification), dont `STRUCT_NO_ITEMS` uniquement si tous les items sont exclus par `folder_exclude_regex` |
 | 2 | échec de publication fabric-cicd |
 | 3 | refus de politique (inventaire `pending`, branche non autorisée) |
-| 4 | erreur d'usage, d'authentification ou de configuration (`<CICD_ROOT>/deployment` absent, `repository_directory` absent ou sans item Fabric) |
+| 4 | erreur d'usage, d'authentification ou de configuration (`<CICD_ROOT>/deployment` absent, `repository_directory` absent ou sans item Fabric, pour `validate`, `scan`, `deploy` et `verify`) |
