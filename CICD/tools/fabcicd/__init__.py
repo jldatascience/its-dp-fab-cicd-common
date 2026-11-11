@@ -14,6 +14,6 @@ ne fait pas lui-même :
 Point d'entrée : ``python CICD/tools/deploy.py --help``.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 
 ENVIRONMENTS = ("DEV", "ITG", "PPR", "PRD")

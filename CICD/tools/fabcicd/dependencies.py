@@ -1,15 +1,23 @@
-"""Règles de dépendances entre dépôts (v1.3, 20/10/2026).
+"""Règles de dépendances entre dépôts (v1.3, 20/10/2026 ; périmètre mis à jour le 11/11/2026).
 
 Matrice de référence (normative) :
 
-==========================  ============================  ==============================
-Catégorie (``category``)    Prérequis de déploiement      Dépendances vers ADP / BDP
-==========================  ============================  ==============================
-framework                   aucun                         aucune
-adp (MDS, Alexandrie, IBS)  Framework disponible          aucune (indépendant des BDP)
-bdp (6 dépôts)              Framework disponible          aucune (indépendant des ADP)
-ucs (Reporting Fees & WIP)  aucun                         consommation de données possible
-==========================  ============================  ==============================
+========================  ============================  ==============================
+Catégorie (``category``)  Prérequis de déploiement      Dépendances vers ADP / BDP
+========================  ============================  ==============================
+framework                 aucun                         aucune
+adp (5 dépôts)            Framework disponible          aucune (indépendant des BDP)
+bdp (10 dépôts)           Framework disponible          aucune (indépendant des ADP)
+ucs (4 dépôts)            aucun                         consommation de données possible
+========================  ============================  ==============================
+
+Dépôts par catégorie (``its-dp-fab-<catégorie>-<nom>-managed``) :
+
+* framework : item-framework ;
+* adp : gds, ibs, mds, referentiel, sirene (ADP Alexandrie retiré le 11/11/2026) ;
+* bdp : campaign, centre-profit, collaborateur, compte, contact, engagement, facture-client,
+  lead, opportunite, performance-engagement ;
+* ucs : hubspot, mybsc-snow, referentiel, reporting-fees-et-wip.
 
 R1  Le Framework est l'unique prérequis de déploiement des ADP et des BDP ; il n'a pas
     besoin d'être redéployé s'il est déjà disponible et validé sur l'environnement cible.

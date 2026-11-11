@@ -1,4 +1,4 @@
-# Pipeline de déploiement continu Fabric — template unique pour les 11 dépôts.
+# Pipeline de déploiement continu Fabric — template unique pour tous les dépôts Fabric.
 #
 # Étendu par CD.yml de chaque dépôt (extends). Rendre ce template OBLIGATOIRE
 # sur les Environments ADO (check « Required template ») garantit qu'aucun

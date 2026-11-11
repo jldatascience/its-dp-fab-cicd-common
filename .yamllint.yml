@@ -3,7 +3,7 @@
 # Règles YAML communes, utilisées à deux endroits :
 #   1. CI du socle (CICD/pipelines/ci-common.yml), lancée depuis CICD/ :
 #      yamllint -c ../.yamllint.yml pipelines registry
-#   2. validation de PR des 11 dépôts Fabric (CICD/pipelines/templates/validate-pipeline.yml) :
+#   2. validation de PR des dépôts Fabric consommateurs (CICD/pipelines/templates/validate-pipeline.yml) :
 #      yamllint -c <socle>/.yamllint.yml CICD/deployment CICD/pipelines
 #      soit config.yml, parameter.yml, dependencies.yml et CI.yml, CD.yml, PR-Validation.yml.
 # Une erreur yamllint rend le check rouge et bloque la fusion de la PR.

@@ -8,19 +8,63 @@ publiées par tag `vX.Y.Z` (un tag publié n'est jamais déplacé). Les versions
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-11
+
+Version corrective, sans changement de comportement des templates ni de `deploy.py` pour un dépôt
+conforme. Elle prend en compte les 20 dépôts Fabric du périmètre, tous sur `refs/tags/v1.5.0` :
+10 des 11 dépôts initiaux (ADP Alexandrie est retiré du périmètre) et 10 dépôts initialisés du
+05/11 au 11/11/2026 (ADP GDS, Referentiel et Sirene ; BDP Campaign, Contact, Lead et
+Opportunite ; UCS Hubspot, MyBSC / SNOW et Referentiel).
+
 ### Fixed
 
-- `fabcicd.__version__` aligné sur la version publiée : `"1.0.0"` → `"1.5.0"`. Le tag `v1.5.0`,
-  déjà publié, contient encore `"1.0.0"` et n'est pas déplacé : la correction sera livrée en
-  `v1.5.1` (`__version__` à passer à `"1.5.1"` avec la section `[1.5.1]`).
+- `fabcicd.__version__` aligné sur la version publiée : `"1.5.1"`. Le tag `v1.5.0`, déjà
+  publié, contient encore `"1.0.0"` et n'est pas déplacé (`main` portait `"1.5.0"` depuis
+  `703253c`).
+- Registre `CICD/registry/known_guids.yml` : capacité Fabric DEV/ITG/PPR corrigée,
+  `29cdc503-…` (erronée) remplacée par `dc14404e-abda-4191-8a07-99980bec2d41`
+  (`frfrfcdevdp0001`) ; libellé de la capacité PRD complété
+  (`gomfcaprodeuwfabricdataplatformfr0001`).
+- Registre : workspaces du BDP Performance Engagement libellés avec le nom du dépôt réel,
+  `its-dp-fab-bdp-performance-engagement-managed` (au lieu de
+  `its-dp-fab-bdp-engagement-performance-managed`).
+
+### Removed
+
+- ADP Alexandrie (`its-dp-fab-adp-alexandrie-managed`) retiré du périmètre du socle : ses 3
+  workspaces (ITG `206e2eea-…`, PPR `f139506e-…`, PRD `e447de01-…`) sont supprimés du registre et
+  le dépôt de la matrice de dépendances, du README et des tests.
+
+### Changed
+
+- Registre complété à partir de la liste des workspaces par environnement : 80 workspaces de
+  20 dépôts (34 auparavant, ITG/PPR/PRD des 11 dépôts initiaux). Ajouts : les workspaces DEV de
+  tous les dépôts (le préfixe MDS DEV `a699158a-` devient la valeur complète) et les 4
+  environnements des 10 nouveaux dépôts. **Effet** : un ID de ces workspaces
+  laissé en dur dans un item, hors règle `parameter.yml`, lève désormais `GUID_HARDCODED`
+  (vérifié sans régression sur les 20 dépôts : aucun n'en contient). Les préfixes
+  déclarés en compensation dans `guid_policy.forbidden_prefixes` des nouveaux dépôts deviennent
+  redondants, mais restent valides.
+- UCS MyBSC / SNOW : `d7578bcf-…` est l'ID du workspace DEV ; l'ID PPR, relevé dans Fabric le
+  11/11/2026, est `8f97d25d-495c-4b93-9699-b2c4947033e1` (la liste des workspaces donnait à tort
+  l'ID DEV pour PPR, et l'ancien `deploy.py` du dépôt visait donc DEV pour PPR).
+- Matrice de dépendances (`fabcicd/dependencies.py`) : liste des dépôts par catégorie mise à
+  jour (framework 1, ADP 5, BDP 10, UCS 4). Règles R1 à R6 inchangées.
+- README : périmètre de 20 dépôts, ligne `v1.5.1` du versionnement, arborescence.
+- Commentaires « 11 dépôts » de `ci-common.yml`, `cd-pipeline.yml` et `.yamllint.yml`
+  remplacés par « dépôts consommateurs ».
+- `fabric/test.md` (contenu « test », référencé nulle part) remplacé par `fabric/.gitkeep`,
+  comme dans les dépôts consommateurs.
 
 ### Added
 
 - Test `tests/test_version.py` : `fabcicd.__version__` doit être égal à la dernière version
   numérotée de ce fichier.
+- Tests `tests/test_registry.py` : format du registre (GUID complet ou préfixe, minuscules,
+  catégorie, booléen), absence de doublon et de préfixe masquant, couverture des 20 dépôts par
+  environnement, correction de capacité.
 - README, section « Versionnement » : convention `CHANGELOG.md` dans chaque dépôt (versions
-  numérotées pour le socle, entrées datées pour les consommateurs, dont l'ancien `CHANGES.md`
-  est renommé).
+  numérotées pour le socle, entrées datées pour les consommateurs).
 
 ## [1.5.0] - 2026-10-29
 

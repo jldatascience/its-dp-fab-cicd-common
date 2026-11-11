@@ -1,23 +1,27 @@
-# Registre des GUID relevés lors de l'audit du 19/10/2026 (doc 2, doc 3, MODOP).
-# Source : tables ENVIRONMENTS des 11 deployment/deploy.py (branche
-# feature/its/1_fabric_item_synchronization) et MODOP CI/CD sections 0.2, 2.2bis, 3.2.
+# Registre des GUID connus du socle (classement des GUID trouvés dans les items).
+# Sources :
+#   - audit du 19/10/2026 : tables ENVIRONMENTS des 11 deployment/deploy.py (branche
+#     feature/its/1_fabric_item_synchronization) et MODOP CI/CD sections 0.2, 2.2bis, 0.5 ;
+#   - mise à jour du 11/11/2026 : liste des workspaces par environnement (« Suivi des workspaces »),
+#     qui couvre les 20 dépôts du périmètre (DEV, ITG, PPR, PRD). ADP Alexandrie est retiré du
+#     périmètre le 11/11/2026 : ses workspaces ne figurent plus dans ce registre.
 #
 # forbidden_in_items: true  -> un GUID de cette liste trouvé dans un item, hors règle
-#                              parameter.yml, fait échouer la CI (identifiant
-#                              d'environnement ou de sandbox codé en dur).
+#                              parameter.yml, fait échouer la CI (GUID_HARDCODED : identifiant
+#                              d'environnement ou de sandbox codé en dur). Les workspaces DEV y
+#                              figurent aussi : un item synchronisé depuis DEV qui garde l'ID de son
+#                              workspace d'origine doit être couvert par une règle ($workspace.$id).
 # Les valeurs de moins de 36 caractères sont des PRÉFIXES : la documentation ne
 # donne que le début du GUID (ex. sandbox 42463408-…). À compléter avec la valeur
 # exacte relevée dans le dépôt.
+# Valeurs en minuscules (la comparaison se fait en minuscules).
 #
 # Aucune valeur de ce fichier n'est un secret (identifiants d'objets Azure/Fabric).
 guids:
+  # ── sandbox et connexions (MODOP)
   - value: "42463408-"
     label: "workspace sandbox personnel (MODOP 0.2) — préfixe"
     category: sandbox
-    forbidden_in_items: true
-  - value: "a699158a-"
-    label: "workspace ADP MDS DEV (MODOP 2.2bis) — préfixe"
-    category: workspace
     forbidden_in_items: true
   - value: "727cf65b-"
     label: "connexion « Fabric Data Pipelines » DP-Fabric-Global-APR (MODOP 0.5) — préfixe, valeur commune aux 4 environnements selon le MODOP (décision D-03)"
@@ -31,16 +35,25 @@ guids:
     label: "ancienne connexion Fabric Data Pipelines (archives, MODOP 0.5) — préfixe"
     category: connection
     forbidden_in_items: true
-  - value: "206e2eea-4079-4fdf-b6f1-acae784c27f0"
-    label: "workspace its-dp-fab-adp-alexandrie-managed ITG"
+  # ── workspaces, par dépôt (DEV, ITG, PPR, PRD)
+  - value: "69943001-74e6-49d2-a9be-b57abc8f4be9"
+    label: "workspace its-dp-fab-adp-gds-managed DEV"
     category: workspace
     forbidden_in_items: true
-  - value: "f139506e-1a07-4887-964f-b6866cd57ab6"
-    label: "workspace its-dp-fab-adp-alexandrie-managed PPR"
+  - value: "071742c7-55c7-4fda-9ee2-a6eab2c7951c"
+    label: "workspace its-dp-fab-adp-gds-managed ITG"
     category: workspace
     forbidden_in_items: true
-  - value: "e447de01-a6cf-40bb-b3b9-14288811b312"
-    label: "workspace its-dp-fab-adp-alexandrie-managed PRD"
+  - value: "87241b71-d6a3-42ea-b450-5386e20dc2a2"
+    label: "workspace its-dp-fab-adp-gds-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "55038f5c-c713-4e41-90c5-29df514739cf"
+    label: "workspace its-dp-fab-adp-gds-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "4c55fb1e-4c8a-457c-8eea-26fd38cde682"
+    label: "workspace its-dp-fab-adp-ibs-managed DEV"
     category: workspace
     forbidden_in_items: true
   - value: "dd5f2016-e3bf-4a16-9aec-9acb35521f9c"
@@ -55,6 +68,10 @@ guids:
     label: "workspace its-dp-fab-adp-ibs-managed PRD"
     category: workspace
     forbidden_in_items: true
+  - value: "a699158a-f604-431c-b9f4-aff776a02c5d"
+    label: "workspace its-dp-fab-adp-mds-managed DEV"
+    category: workspace
+    forbidden_in_items: true
   - value: "bb764b8b-4e99-4c69-8026-e1cf252c192a"
     label: "workspace its-dp-fab-adp-mds-managed ITG"
     category: workspace
@@ -65,6 +82,58 @@ guids:
     forbidden_in_items: true
   - value: "d4ec0e23-49b5-4b58-a8ea-5ae26c89130e"
     label: "workspace its-dp-fab-adp-mds-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "4c6b33a2-d61c-4c92-8cea-80eadcf277d2"
+    label: "workspace its-dp-fab-adp-referentiel-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "13b7d0a0-4ff3-4dca-a3d2-e15974b614e7"
+    label: "workspace its-dp-fab-adp-referentiel-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "161b78a6-bded-43c1-97fd-96e7aec40a2e"
+    label: "workspace its-dp-fab-adp-referentiel-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "ba74b427-a836-4686-a195-252f747d867e"
+    label: "workspace its-dp-fab-adp-referentiel-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "afd0f28c-0624-49a8-90a6-734c1607e498"
+    label: "workspace its-dp-fab-adp-sirene-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "6be0bb78-ef7c-4aae-bd81-8b74dbe55584"
+    label: "workspace its-dp-fab-adp-sirene-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "af692eee-df85-4d7b-b5cb-75fb65e218d7"
+    label: "workspace its-dp-fab-adp-sirene-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "075c020e-04d9-4930-bba7-4c6694e7ed06"
+    label: "workspace its-dp-fab-adp-sirene-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "cba1c8b5-6881-4122-a7b7-bcc5478657d5"
+    label: "workspace its-dp-fab-bdp-campaign-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "af002608-0275-48a1-a71d-7cda4df108ae"
+    label: "workspace its-dp-fab-bdp-campaign-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "164700a2-9739-49ef-afdf-ff3686b19bed"
+    label: "workspace its-dp-fab-bdp-campaign-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "bac0338a-8fe1-4102-b84b-a9bc4ac1b794"
+    label: "workspace its-dp-fab-bdp-campaign-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "46c8f043-e4a2-4c6f-9591-35ad9c6d6006"
+    label: "workspace its-dp-fab-bdp-centre-profit-managed DEV"
     category: workspace
     forbidden_in_items: true
   - value: "6d970949-91fa-42d2-996c-5417dcf891c5"
@@ -79,6 +148,10 @@ guids:
     label: "workspace its-dp-fab-bdp-centre-profit-managed PRD"
     category: workspace
     forbidden_in_items: true
+  - value: "7679a1ba-345d-46b0-a4d0-4bc05d065f3f"
+    label: "workspace its-dp-fab-bdp-collaborateur-managed DEV"
+    category: workspace
+    forbidden_in_items: true
   - value: "174ffe32-7d6d-48ce-b9d0-5fa0545ac4fc"
     label: "workspace its-dp-fab-bdp-collaborateur-managed ITG"
     category: workspace
@@ -89,6 +162,10 @@ guids:
     forbidden_in_items: true
   - value: "d6894b9b-4797-4774-bdc6-efc85faa758a"
     label: "workspace its-dp-fab-bdp-collaborateur-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "f60f7870-63a5-456c-8db2-daa264c67114"
+    label: "workspace its-dp-fab-bdp-compte-managed DEV"
     category: workspace
     forbidden_in_items: true
   - value: "a2a7c910-6961-4a9f-b53c-1d51e63e6b0d"
@@ -103,6 +180,26 @@ guids:
     label: "workspace its-dp-fab-bdp-compte-managed PRD"
     category: workspace
     forbidden_in_items: true
+  - value: "8867ea6f-9e85-4cce-8662-b06fe9a116bd"
+    label: "workspace its-dp-fab-bdp-contact-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "3455b36e-8986-4915-b704-e3962fe3e4d5"
+    label: "workspace its-dp-fab-bdp-contact-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "54178dfc-0c5e-4a86-8f4b-c9f287eb8d29"
+    label: "workspace its-dp-fab-bdp-contact-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "b426f583-9a6a-44d0-9cbf-6d9680412ca8"
+    label: "workspace its-dp-fab-bdp-contact-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "eccf49e0-58e9-4fbf-8256-e446eebca01d"
+    label: "workspace its-dp-fab-bdp-engagement-managed DEV"
+    category: workspace
+    forbidden_in_items: true
   - value: "b4898261-5600-4558-909f-08c3b9c6c71a"
     label: "workspace its-dp-fab-bdp-engagement-managed ITG"
     category: workspace
@@ -113,6 +210,10 @@ guids:
     forbidden_in_items: true
   - value: "6edf7cf8-db10-4915-a417-c5f001c4b444"
     label: "workspace its-dp-fab-bdp-engagement-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "dd280c49-24d1-43bf-b92b-c720be387a0d"
+    label: "workspace its-dp-fab-bdp-facture-client-managed DEV"
     category: workspace
     forbidden_in_items: true
   - value: "d47ebe34-d720-4417-8b37-213b9a30f2da"
@@ -127,16 +228,56 @@ guids:
     label: "workspace its-dp-fab-bdp-facture-client-managed PRD"
     category: workspace
     forbidden_in_items: true
+  - value: "3550cdbe-bc0a-41b7-861a-fd7a2aa0368b"
+    label: "workspace its-dp-fab-bdp-lead-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "3b0ed5de-99d9-48f4-8792-9033213bdbb8"
+    label: "workspace its-dp-fab-bdp-lead-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "03c4a4d0-03a7-469e-82aa-5764f5c72a2c"
+    label: "workspace its-dp-fab-bdp-lead-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "79919c9b-8b0b-4956-a048-debf74fcfcbd"
+    label: "workspace its-dp-fab-bdp-lead-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "e4f355f2-097c-4ebb-91e8-3f1b722c9004"
+    label: "workspace its-dp-fab-bdp-opportunite-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "2060abc8-c2d1-472e-882b-25376ae8ec09"
+    label: "workspace its-dp-fab-bdp-opportunite-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "01162f4e-7110-4a21-aae0-e868a6bac198"
+    label: "workspace its-dp-fab-bdp-opportunite-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "52cdfcae-4096-48a2-bd7e-fe9784ddae92"
+    label: "workspace its-dp-fab-bdp-opportunite-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "bd480b25-4e5f-4758-bcf8-2c229310b4c4"
+    label: "workspace its-dp-fab-bdp-performance-engagement-managed DEV"
+    category: workspace
+    forbidden_in_items: true
   - value: "502b0cbf-ce8c-43fa-8d84-4e6f3bdc08d6"
-    label: "workspace its-dp-fab-bdp-engagement-performance-managed ITG"
+    label: "workspace its-dp-fab-bdp-performance-engagement-managed ITG"
     category: workspace
     forbidden_in_items: true
   - value: "f83b9a1e-4034-412f-ab29-9cf587ffb4e5"
-    label: "workspace its-dp-fab-bdp-engagement-performance-managed PPR"
+    label: "workspace its-dp-fab-bdp-performance-engagement-managed PPR"
     category: workspace
     forbidden_in_items: true
   - value: "0f91a252-3f80-41cb-8353-4a15a5cf3f83"
-    label: "workspace its-dp-fab-bdp-engagement-performance-managed PRD"
+    label: "workspace its-dp-fab-bdp-performance-engagement-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "779f53bb-fc39-4c1a-a580-e9794416486b"
+    label: "workspace its-dp-fab-item-framework-managed DEV"
     category: workspace
     forbidden_in_items: true
   - value: "e3a72e96-8582-4634-b97b-f31466286abf"
@@ -151,6 +292,58 @@ guids:
     label: "workspace its-dp-fab-item-framework-managed PRD"
     category: workspace
     forbidden_in_items: true
+  - value: "1f872119-2b90-487c-9940-02c094f9ef54"
+    label: "workspace its-dp-fab-ucs-hubspot-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "39dc70e9-6546-4b8d-9ea4-46366818c6b2"
+    label: "workspace its-dp-fab-ucs-hubspot-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "eb8e0f60-5db8-4300-8cc8-c25184619a83"
+    label: "workspace its-dp-fab-ucs-hubspot-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "84d507eb-be86-4778-bc28-ecc2d81c0a34"
+    label: "workspace its-dp-fab-ucs-hubspot-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "d7578bcf-9e4a-4519-ac40-664df881cfc2"
+    label: "workspace its-dp-fab-ucs-mybsc-snow-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "dd8af3a7-952f-43df-924f-17f479f186eb"
+    label: "workspace its-dp-fab-ucs-mybsc-snow-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "8f97d25d-495c-4b93-9699-b2c4947033e1"
+    label: "workspace its-dp-fab-ucs-mybsc-snow-managed PPR (relevé dans Fabric le 11/11/2026 ; la liste des workspaces donnait à tort l'ID DEV)"
+    category: workspace
+    forbidden_in_items: true
+  - value: "852072cf-80d6-4514-924d-6938b820be1e"
+    label: "workspace its-dp-fab-ucs-mybsc-snow-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "8337ccea-9cab-4e6e-8826-487b92fc99fc"
+    label: "workspace its-dp-fab-ucs-referentiel-managed DEV"
+    category: workspace
+    forbidden_in_items: true
+  - value: "e642415a-a335-40a1-b876-b45e7bdc3097"
+    label: "workspace its-dp-fab-ucs-referentiel-managed ITG"
+    category: workspace
+    forbidden_in_items: true
+  - value: "18955b28-6095-439b-916c-2a9952757121"
+    label: "workspace its-dp-fab-ucs-referentiel-managed PPR"
+    category: workspace
+    forbidden_in_items: true
+  - value: "1d9c3851-46c2-407d-aca2-2787aeda2eb9"
+    label: "workspace its-dp-fab-ucs-referentiel-managed PRD"
+    category: workspace
+    forbidden_in_items: true
+  - value: "6bb479d1-2e8d-4037-89de-4753ea3da38a"
+    label: "workspace its-dp-fab-ucs-reporting-fees-et-wip-managed DEV"
+    category: workspace
+    forbidden_in_items: true
   - value: "0f3f57bb-15ae-4222-84af-67832b4dc47e"
     label: "workspace its-dp-fab-ucs-reporting-fees-et-wip-managed ITG"
     category: workspace
@@ -163,14 +356,16 @@ guids:
     label: "workspace its-dp-fab-ucs-reporting-fees-et-wip-managed PRD"
     category: workspace
     forbidden_in_items: true
-  - value: "29cdc503-aa27-48e1-a41e-4d6af4472f00"
-    label: "capacité Fabric ITG/PPR"
+  # ── capacités Fabric (correction du 11/11/2026 : DEV/ITG/PPR = DC14404E…, et non 29CDC503…)
+  - value: "dc14404e-abda-4191-8a07-99980bec2d41"
+    label: "capacité Fabric frfrfcdevdp0001 (DEV, ITG, PPR)"
     category: capacity
     forbidden_in_items: true
   - value: "8b3b9e06-c303-40fc-87b5-7fa949901720"
-    label: "capacité Fabric PRD"
+    label: "capacité Fabric gomfcaprodeuwfabricdataplatformfr0001 (PRD)"
     category: capacity
     forbidden_in_items: true
+  # ── identités (SPN par environnement) et tenant
   - value: "bf2e1f9f-b18c-481f-9400-7eb8caee3d5f"
     label: "client ID SPN ITG"
     category: identity

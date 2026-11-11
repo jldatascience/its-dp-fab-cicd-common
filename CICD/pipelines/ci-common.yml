@@ -1,6 +1,6 @@
 # CI du socle commun lui-même (dépôt its-dp-fab-cicd-common).
 # Toute évolution des templates ou de l'outillage passe par une PR validée par
-# ce pipeline, puis par un tag SemVer (v1.0.0, v1.1.0…) référencé par les 11 dépôts.
+# ce pipeline, puis par un tag SemVer (v1.0.0, v1.1.0…) référencé par les dépôts consommateurs.
 # ── trigger — CI du socle lui-meme
 trigger:
   branches:

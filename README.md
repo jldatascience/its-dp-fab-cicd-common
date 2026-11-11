@@ -1,12 +1,32 @@
 # its-dp-fab-cicd-common — socle commun CI/CD Microsoft Fabric
 
 Dépôt **nouveau**, à créer dans l'organisation GitHub de la Data Platform. Il contient
-tout ce qui est partagé par les 11 dépôts Fabric : les templates Azure DevOps, l'outil
-de déploiement Python et ses tests. Les dépôts Fabric ne contiennent plus de script de
+tout ce qui est partagé par les 20 dépôts Fabric (liste ci-dessous) : les templates Azure DevOps,
+l'outil de déploiement Python et ses tests. Les dépôts Fabric ne contiennent plus de script de
 déploiement, seulement leur configuration (`CICD/deployment/*.yml`) et trois YAML minces
 (`CICD/pipelines/CI.yml`, `CD.yml`, `PR-Validation.yml`).
 
-Version courante : **v1.5.0** (détail des versions dans `CHANGELOG.md`).
+Version courante : **v1.5.1** (détail des versions dans `CHANGELOG.md`).
+
+## Dépôts consommateurs
+
+20 dépôts `its-dp-fab-<catégorie>-<nom>-managed`, un par workspace Fabric (DEV relié en Git
+Integration au dossier `fabric/`, ITG, PPR et PRD alimentés par la CD). La catégorie, déclarée dans
+`CICD/deployment/dependencies.yml`, fixe les dépendances de déploiement admises (matrice v1.3,
+`fabcicd/dependencies.py`) :
+
+| Catégorie | Dépôts | Prérequis de déploiement | Porte Framework (`frameworkGate`) |
+|---|---|---|---|
+| `framework` | item-framework | aucun | sans objet |
+| `adp` (5) | gds, ibs, mds, referentiel, sirene | Framework disponible (R1) | `ado` |
+| `bdp` (10) | campaign, centre-profit, collaborateur, compte, contact, engagement, facture-client, lead, opportunite, performance-engagement | Framework disponible (R1) | `ado` |
+| `ucs` (4) | hubspot, mybsc-snow, referentiel, reporting-fees-et-wip | aucun (R5) | `"off"` |
+
+Les ID de leurs workspaces (DEV, ITG, PPR, PRD) sont au registre `CICD/registry/known_guids.yml`
+(source : liste des workspaces par environnement, 11/11/2026) : un de ces ID laissé en dur dans un
+item, hors règle `parameter.yml`, fait échouer la CI (`GUID_HARDCODED`). Tout nouveau dépôt ou
+workspace s'ajoute au registre, et au test `tests/test_registry.py`, dans une nouvelle version du
+socle.
 
 ```
 its-dp-fab-cicd-common/
@@ -22,7 +42,7 @@ its-dp-fab-cicd-common/
 │   │       ├── cd-pipeline.yml            CD complète (étendu par CD.yml)
 │   │       ├── stage-deploy.yml           un stage d'environnement
 │   │       └── steps-python.yml           Python + dépendances épinglées
-│   ├── registry/known_guids.yml           GUID relevés à l'audit (classement des références)
+│   ├── registry/known_guids.yml           GUID connus : workspaces des 20 dépôts, capacités, SPN…
 │   ├── tools/
 │   │   ├── deploy.py                      point d'entrée unique (validate, deploy, verify, scan, lookup, manifest)
 │   │   ├── requirements.txt               fabric-cicd==1.4.0 et dépendances épinglées
@@ -30,7 +50,7 @@ its-dp-fab-cicd-common/
 │   │   └── fabcicd/                       contrôles statiques, matrice de dépendances, pré-vol,
 │   │                                      porte Framework (ADP/BDP), vérification, rapport
 │   └── tests/                             tests unitaires (aucun appel réseau)
-└── fabric/test.md
+└── fabric/.gitkeep                         dossier vide (le socle n'a aucun item Fabric)
 ```
 
 ## Arborescence attendue dans les dépôts consommateurs
@@ -105,7 +125,7 @@ Depuis la racine du dépôt :
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -r CICD/tools/requirements-dev.txt
-(cd CICD && python -m pytest)                      # 156 tests, sans réseau (pytest.ini est dans CICD/)
+(cd CICD && python -m pytest)                      # 162 tests, sans réseau (pytest.ini est dans CICD/)
 yamllint -c .yamllint.yml CICD/pipelines CICD/registry
 python CICD/tools/deploy.py validate --repo ../its-dp-fab-adp-mds-managed
 python CICD/tools/deploy.py scan --repo ../its-dp-fab-bdp-compte-managed --out inventaire.csv
@@ -115,18 +135,20 @@ python CICD/tools/deploy.py deploy --repo ../its-dp-fab-adp-mds-managed --env IT
 
 ## Versionnement
 
-Les 11 dépôts référencent ce socle par **tag**, jamais par `main` depuis une CD :
+Les 20 dépôts référencent ce socle par **tag**, jamais par `main` depuis une CD :
 
 | Tag | À utiliser par |
 |---|---|
-| `refs/tags/v1.5.0` | cible des 11 dépôts : paramètres `cicdRoot` / `commonCicdRoot`, garde `repository_directory` (code 4) |
+| `refs/tags/v1.5.1` | cible : registre des GUID complété (20 dépôts, capacité corrigée), `__version__` aligné ; aucun changement de template |
+| `refs/tags/v1.5.0` | référencé par les 20 dépôts au 11/11/2026 : paramètres `cicdRoot` / `commonCicdRoot`, garde `repository_directory` (code 4) |
 | `refs/tags/v1.4.1` | retour arrière : corrections de l'arborescence `CICD/` |
 | `refs/tags/v1.4.0` | retour arrière : service connections ARM par environnement (marqueurs clarifiés) |
 | `refs/tags/v1.3.1` | retour arrière : ID en clair admis |
 | `refs/tags/v1.3.0` | retour arrière : comportement d'origine |
 
-Un tag n'existe qu'une fois créé et poussé dans GitHub : tant que `v1.5.0` n'y figure pas, les
-dépôts restent sur leur tag actuel.
+Un tag n'existe qu'une fois créé et poussé dans GitHub : tant que `v1.5.1` n'y figure pas, les
+dépôts restent sur `v1.5.0`. La montée en `v1.5.1` ne demande que de changer `ref` dans
+`CD.yml` et `PR-Validation.yml` (aucun paramètre nouveau).
 
 Toute évolution : PR sur `main` → CI verte → tag `v1.x.y` → PR de montée de version dans les
 dépôts consommateurs (pilote d'abord). Un tag publié n'est jamais déplacé.
